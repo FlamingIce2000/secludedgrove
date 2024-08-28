@@ -4,10 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>A Secluded Grove</title>
+    <style>
+        body {
+            font-family: monospace;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .screen {
+            display: none; /* Hide all screens by default */
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: monospace;
+            font-size: 20px;
+        }
+
+        .screen.active {
+            display: flex; /* Only the active screen will be shown */
+        }
+    </style>
 </head>
 <body>
-    <div id="game-container">
-        <h1>You are in a secluded grove!</h1>
+    <div id="tabs" class="screen active">
+        
+    </div>
+    <div id="game-container" class="screen active">
+        <h1>You are in a secluded grove.</h1>
         <div id="game-output"></div>
         <button id="action-button">Look Around</button>
     </div>
