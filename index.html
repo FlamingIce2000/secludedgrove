@@ -5,38 +5,182 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>A Secluded Grove</title>
     <style>
+        .hidden {
+            display: none;
+        }
         body {
             font-family: monospace;
             background-color: #f0f0f0;
-            display: flex;
-            justify-content: center;
+            justify-content: top;
             align-items: center;
             height: 100vh;
             margin: 0;
+            flex-direction: column;
         }
+        button {
+            font-family: monospace;
+            background-color: #c0c0c0;
+            padding: 4px 6px;
+            border: 1px solid #101010;
+            display: inline-block;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin: 2px;
+        }
+
+        button.small{
+            font-size: 12px;
+            padding: 2px;
+            display:block;
+
+        }
+
+        /*[title] {
+        display: block;
+        margin: 0 0 1em 0;
+        }
+
+
+        [title] + span.createdTooltip {
+        display: none;
+        border: 2px solid #f90;
+        background-color: rgba(255, 255, 255, 0.8);
+        padding: 0.2em 0.5em;
+        border-radius: 0.75em;
+        }
+
+
+        [title]:hover + span.createdTooltip {
+        display: block;
+        position: absolute;
+        }*/
         .screen {
             display: none; /* Hide all screens by default */
             height: 100vh;
-            display: flex;
-            justify-content: center;
+            justify-content: top;
             align-items: center;
             font-family: monospace;
-            font-size: 20px;
+            font-size: 16px;
         }
 
         .screen.active {
             display: flex; /* Only the active screen will be shown */
+            flex-direction: column;
+            position: relative;
+        }
+
+        
+
+        .flex{
+            display: flex;
+            position: relative;
+            justify-content: top;
+            align-items: center;
+            font-family: monospace;
+            font-size: 16px;
+        }
+
+        .tabs {
+            width: 100%;
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 2px;
+        }
+
+        .tab {
+            display: flex;
+            width: fit-content;
+        }
+
+        .clickable {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .berry{
+            position: absolute;
+            color: #A00000;
+            font-size: "24px";
+
+        }
+        .monsheet{
+            position: absolute;
+            display: flex;
+            flex-direction: row;
+            background-color: #D0D0D0;
+            border:1px solid #101010;
+        }
+
+        .moncolumn{
+            flex-direction: row;
+        }
+
+        .monentry{
+            margin: 2px 8px;
+        }
+        .resource{
+            margin: 3px 3px;
         }
     </style>
 </head>
 <body>
-    <div id="tabs" class="screen active">
-        
+    <div id="tabs" class="tabs">
+        <div class = tab><pre>
+            <br>
+            <br>
+        </pre></div>
     </div>
-    <div id="game-container" class="screen active">
-        <h1>You are in a secluded grove.</h1>
-        <div id="game-output"></div>
-        <button id="action-button">Look Around</button>
+    <div id="notification" class="hidden">  </div>
+    <div id="game-container">
+        <div id="resource-screen" style="display:flex;flex-direction:column;top:95px;left:95px;position:absolute">
+
+        </div>
+        <div id="grove-screen" class="screen active">
+            <p id = "grove-text" >You are in a secluded grove.</p>
+            <br>
+            <div>
+                
+                <button id="look-button">Look Around</button>
+            </div>
+            <div id="mon-menu" class = "hidden" style="flex-direction:column;top:300px;align-items:center;width:300px;height:300px;font-size:16px;">
+                <select name="monlist" id="select-mon" style="align-self:center;min-width:100px;max-width:90%;font-size:16">
+
+                </select>
+                <br>
+            </div>
+            <div id="build-menu" class="hidden" style="flex-direction:column;right:230px;top:120px;position:absolute;min-width:230px">
+                <div style="display:flex;flex-direction:row;width:100%;justify-content:space-between;align-items:center">
+                <select name="buildlist" id="select-build" style="min-width:100px;max-width:150px;height:fit-content">
+                </select>
+                <button id="build-button" style="width:fit-content">Build</button>
+                <div id="build-description"></div>
+                </div>
+            </div>
+        </div>
+        <div id="forage-screen" class="screen">
+            <div id="bush-wrapper" style="position:relative">
+            <pre id = "bush">
+                ,.,.,.,
+                MMMMMMMM_       ,..,..,
+                    ""__ ""____MMMMMMMM                   ,..,..,,
+        ,..,..,      __.""    ----""        ,..,..,  _----""MMMMMMMMMM
+   MMMMMMMMMM""___ """"_._      MMMMMM""__. ""     _    """""""""""""
+    """"""""""""        ""    ,   \_______.     ""__.   .""
+             ,..,..,  _""___  \____.___.   .""
+          MMMMMMMMMM""     ""___         ./
+           '''''''              |        |
+      .________________________.'--------'_______________.----.__
+            </pre>
+            </div>
+            
+        </div>
+        <div id="explore-screen" class = "screen">
+            <div id="explore-text">The untamed forest lies before you.<br>Who knows what you might find?</div>
+            <p></p>
+            <button id="explore-button" onclick="explore()">Venture Forth</button>
+        </div>
     </div>
     <script src="script.js"></script>
 </body>
