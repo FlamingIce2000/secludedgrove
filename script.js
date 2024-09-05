@@ -338,7 +338,7 @@ function firstMonEvent(){
 
                 registerListener(new GenericListener(unlockExplore,["fruit"],[30]));
             });
-        },2000)
+        },20000)
     })
     groveScreen.appendChild(feedButton);
     }
@@ -912,7 +912,7 @@ function updateMonCard(element)
                 if(mon.tame < 100){
                     if(mon.feedCooldown.val > 0){
                         feedMon.innerText = "Feed " + mon.feedCooldown.val + "s"
-                        let feedCost = 10*mons.length + 0;
+                        let feedCost = 5*mons.length + 10;
                         if(mon.carnivore){
                             feedMon.style.title = "meat " + feedCost;
                         } else {
@@ -1073,12 +1073,12 @@ class Mon{
         if(this.tame < 100){
             if(this.feedCooldown.val > 0){
                 let feedMon = newChild(monActions,"button","feed-button","Feed " + this.feedCooldown.val + "s","small");
-                let feedCost = 5*mons.length + 15;
+                let feedCost = 5*mons.length + 10;
                 feedMon.style.title = "fruit " + feedCost;
                 feedMon.disabled = true;
             } else {
             let feedMon = newChild(monActions,"button","feed-button","Feed","small");
-            let feedCost = 10*mons.length + 10;
+            let feedCost = 5*mons.length + 10;
             let listener
             if(this.carnivore){
                 listener = registerButtonListener(feedMon,["meat"],[feedCost]);
