@@ -16,13 +16,16 @@ let wood = 0;
 let mystical_herbs = 0;
 let numBerries = 0;
 let progress = 0
-let unlockedPowers = false;
 let mons = [];
 let intervals = new Set([]);
 let resourceListeners = new Set([]);
 let exploreCooldown = new Box(0);
+let trapCooldown = new Box(0);
 let alignment = 0;
 let numExplores = 0;
+let perks = new Set([]);
+let buildListener = null;
+let miscResource = {'traps':0};
 
 let BASE_MON_FRUIT_PRODUCTION = 2;
 let BASE_MON_MEAT_PRODUCTION = 4;
@@ -188,6 +191,9 @@ function selectTab(tab){
 function collectBerry(){
     const berryDiv = event.target;
     fruit++;
+    if(perks.has('basket')){
+        fruit++;
+    }
     updateResourceDisplay();
     numBerries--;
     berryDiv.remove();
@@ -338,7 +344,7 @@ function firstMonEvent(){
 
                 registerListener(new GenericListener(unlockExplore,["fruit"],[30]));
             });
-        },20000)
+        },20000);
     })
     groveScreen.appendChild(feedButton);
     }
@@ -367,7 +373,7 @@ function resetExplore(){
     exploreButton = get("explore-button");
     exploreText = get("explore-text");
     exploreText.innerText = "The untamed forest lies before you.\nWho knows what you might find?";
-    registerButtonListener(exploreButton,["fruit"],[EXPLORE_COST]);
+    //registerButtonListener(exploreButton,["fruit"],[EXPLORE_COST]);
     exploreButton.classList.remove("hidden");
     exploreCooldown.val = 15;
     updateExploreButton();
@@ -379,11 +385,18 @@ function updateExploreButton(){
     if(exploreCooldown.val > 0) {
         exploreButton.innerText += " (" + exploreCooldown.val + "s)";
         exploreButton.disabled = true;
+    } else {
+        updateResourceDisplay();
     }
 }
 function explore(){
     fruit -= EXPLORE_COST;
     updateResourceDisplay();
+    if(numExplores == 10){
+        eventTemple();
+        numExplores++;
+        return;
+    }
     switch(Math.floor(Math.random()*18)){
         case 0:
         case 1:
@@ -510,7 +523,7 @@ function event4(){ //blackberries
     if(!exploreButton.classList.contains('hidden')){
         exploreButton.classList.add('hidden');
     }
-    exploreText.innerText = convertString(`A grove of blackberry bushes, filled with ripe berries greets you. You gather what you can carry. Back at camp ${mons[0].nickname} puts on puppy dog eyes to beg for one`);
+    exploreText.innerText = convertString(`A grove of blackberry bushes filled with ripe berries greets you. You gather what you can carry. Back at camp ${mons[0].nickname} puts on puppy dog eyes to beg for one`);
     fruit += 25;
     updateResourceDisplay();
     setTimeout(resetExplore,15000);
@@ -675,8 +688,167 @@ function eventBoring(){
     exploreText.innerText = convertString("You enjoy a wonderful walk in the woods");
     setTimeout(resetExplore,10000);
 }
+let templeHerbs = false;
+function eventTemple(){
+    let herbs = false;
+    exploreChoice(
+        `Deep in the woods you find what appears to be the remains of an ancient temple. Stone walls are overgrown with vines and in many places the ceiling has collapsed. As you approach the entrance, ${mons[0].nickname} emerges from the forest to join you. You can feel a... power pulsating inside. It beckons to you two.`,
+        "This is surely sacred ground",[],[],
+        temple1a,
+        "I must gain this power",[],[],
+        temple1b
+    );
+}
+function temple1a(){
+    exploreChoice(
+        "You enter the main chamber. The cracked stone floor is covered in vines. To the north, golden sunlight streams through a doorway. In the center of the room, stairs lead downwards into darkness. You can feel the thrum of power from down below",
+        "Enter the Side Room",[],[],
+        temple2a,
+        "Descend the Stairs",[],[],
+        temple3a
+    );
+}
+function temple2a(){
+    exploreText = get("explore-text");
+    exploreScreen = get("explore-screen");
+    let button1;
+    let button2;
+    if(!templeHerbs){
+        exploreText.innerText = convertString(`You enter an ancient courtyard surrounded by forest. A break in the trees allows sunlight to bathe the area in its golden light. ${mons[0].nickname} frolicks in the vibrant grass. Plants in the courtyard glow with a mystical energy.`)
+        button1 = newChild(exploreScreen,"button","button-1","Gather the Plants");
+        
+        button1.addEventListener('click',() =>{
+            exploreText.innerText = convertString("In reverence of this sacred area, you carefully gather some of the herbs. They seem imbued with the same energy you feel coming from the temple. They will surely prove useful.");
+            alignment += 3;
+            button1.remove();
+            templeHerbs = true;
+            mystical_herbs += 3;
+            updateResourceDisplay();
+        });
+    } else {
+        exploreText.innerText = convertString("You enter an ancient courtyard surrounded by forest. A break in the trees allows sunlight to bathe the area in its golden light. Plants of all varieties flourish here, though you dare not take more than you already have.")
+    }
+    button2 = newChild(exploreScreen,"button","button-2","Return Inside");
+    button2.addEventListener('click',() =>
+    {
+        if(button1 != null) button1.remove();
+        button2.remove();
+        temple1a();
+    });
+}
 
-//A function used in creating events. Used for simple, two choice events.
+function temple3a(){
+    exploreText = get("explore-text");
+    exploreScreen = get("explore-screen");
+    exploreText.innerText = convertString(`You carefully walk down the stairs, the invisible power growing with every step. ${mons[0].nickname} can feel it too. Finally the darkness breaks as you see an emerald light ahead. The stairs end in a small chamber with curious markings covering the walls. Floating in the center is a vibrant green crystal, the obvious source of the energy. The power seems to wash over you, drowning out your thoughts with a thick... silence.`);
+    button1 = newChild(exploreScreen,"pre","button-1",`  /\\    
+ /  \\   
+/ /\\ \\ 
+\\ \\/ / 
+ \\  /  
+  \\/   `,"clickable");
+        button1.style.color = "#10E030";
+        button1.style.fontWeight = "bold"
+        button1.classList.add('color-shift');
+    document.title = '❬ ○ ❭'
+    button1.addEventListener('click',() =>{
+        button1.remove();
+        alignment -= 5;
+        exploreText.innerText = convertString(`The power courses through your body, streams of emerald light twist around you and ${mons[0].nickname}.`);
+        document.body.classList.add('shake-window');
+    
+        setTimeout(function() {
+            document.body.classList.remove('shake-window');
+        }, 1000);
+
+        setTimeout(function() {
+            exploreText.innerText = convertString(`You regain your senses. Everything is quiet and the crystal floats just in front of you still. You feel a new reservoir of power within you and as you turn to look at ${mons[0].nickname}, they appear to be glowing with the same power you feel inside. This crystal is sacred, the Heart of the Forest. You must get it back to the grove for safety.`);
+            button1 = newChild(exploreScreen,"button","button-1","Bring it back");
+            button1.addEventListener('click',() =>
+            {
+                button1.remove();
+                exploreText.innerText = convertString(`With great reverence, you take hold of the crystal again. It resonates with the power you feel inside, but does not react like last time. ${mons[0].nickname} bows their head towards the crystal. Both of you return to the grove, crystal in hand. As you return to the sunlight, you notice ${mons[0].nickname}'s pelt now has streaks of vibrant, almost glowing, green.`);
+                perks.add('druid');
+                setTimeout(resetExplore,20000);
+            });
+        },10000);
+    });
+}
+function temple1b(){
+    exploreChoice(
+        "You enter the main chamber. The cracked stone floor is covered in vines. To the north, golden sunlight streams through a doorway. In the center of the room, stairs lead downwards into darkness. You can feel the thrum of power from down below",
+        "Enter the Side Room",[],[],
+        temple2b,
+        "Descend the Stairs",[],[],
+        temple3b
+    );
+}
+function temple2b(){
+    exploreText = get("explore-text");
+    exploreScreen = get("explore-screen");
+    let button1;
+    let button2;
+    if(!templeHerbs){
+        exploreText.innerText = convertString(`You enter an ancient courtyard surrounded by forest. A break in the trees allows sunlight to bathe the area in light. Plants in the courtyard glow with a powerful energy.`)
+        button1 = newChild(exploreScreen,"button","button-1","Gather the Plants");
+        
+        button1.addEventListener('click',() =>{
+            exploreText.innerText = convertString("You must have this power. You collect every plant that you can a hunger for power building inside you.");
+            alignment -= 3;
+            button1.remove();
+            templeHerbs = true;
+            mystical_herbs += 5;
+            updateResourceDisplay();
+        });
+    } else {
+        exploreText.innerText = convertString("You enter an ancient courtyard surrounded by forest. A break in the trees allows sunlight to bathe the area in light. The ground is ravished of plant life. Nothing of value remains here.")
+    }
+    button2 = newChild(exploreScreen,"button","button-2","Return Inside");
+    button2.addEventListener('click',() =>
+    {
+        if(button1 != null) button1.remove();
+        button2.remove();
+        temple1b();
+    });
+}
+function temple3b() {
+    exploreText = get("explore-text");
+    exploreScreen = get("explore-screen");
+    document.title = '❬ ○ ❭'
+    exploreText.innerText = convertString(`You walk down the stairs, the invisible power entincing you more with every step. Finally the darkness breaks as you see an emerald light ahead. The stairs end in a small chamber. The power is strong here. Floating in the center is a glowing green crystal, the source of this power. The power seems to call to you. You need this power.`);
+    button1 = newChild(exploreScreen,"pre","button-1",`  /\\    
+        /  \\   
+       / /\\ \\ 
+       \\ \\/ / 
+        \\  /  
+         \\/   `,"clickable");
+               button1.style.color = "#10E030";
+               button1.style.fontWeight = "bold"
+               button1.classList.add('color-shift');
+    button1.addEventListener('click',() =>{
+        button1.remove();
+        alignment += 5;
+        exploreText.innerText = convertString(`The power courses through your body, streams of emerald light twisting around you.`);
+        document.body.classList.add('shake-window');
+    
+        setTimeout(function() {
+            document.body.classList.remove('shake-window');
+        }, 1000);
+
+        setTimeout(function() {
+            exploreText.innerText = convertString(`You regain your senses. Everything is quiet and the crystal is gripped tightly in your hand. You feel a new reservoir of power within you. This crystal is powerful and must be guarded fiercly. You must get it back to the grove.`);
+            button1 = newChild(exploreScreen,"button","button-1","Bring it back");
+            button1.addEventListener('click',() =>
+            {
+                button1.remove();
+                exploreText.innerText = convertString(`You return to the grove, crystal in hand. As you return to the sunlight, you notice ${mons[0].nickname}'s pelt now has streaks of vibrant, almost glowing, green. It follows close at your heels, head bowed.`);
+                perks.add('druid');
+                setTimeout(resetExplore,20000);
+            });
+        },10000);
+    });
+}
+//A function used in creating events. Used for simple events with a few buttons
 function exploreChoice(mainText,button1Text,button1Req,button1Amount,button1Func,button2Text,button2Req,button2Amount,button2Func,button3Text,button3Req,button3Amount,button3Func){
     let exploreButton = get("explore-button");
     if(!exploreButton.classList.contains('hidden')){
@@ -735,7 +907,131 @@ function exploreChoice(mainText,button1Text,button1Req,button1Amount,button1Func
 }
 
 function unlockBuild(){
+    progress = 3;
+    groveText = get("grove-text");
+    groveText.innerText = convertString("With the wood you have, you may be able to construct some useful tools for you and your animals");
 
+    buildMenu = get("build-menu");
+    buildMenu.classList.remove("hidden");
+    buildMenu.style.display = "flex";
+    let buildButton = get("build-button");
+    buildList = get("select-build");
+    newChild(buildList,"option","build-trap","Trap");
+    newChild(buildList,"option","build-basket","Basket");
+    newChild(buildList,"option","build-harness","Harness");
+    buildList.addEventListener('change',updateBuildList);
+    updateBuildList();
+    buildButton.addEventListener('click',buildItem);
+}
+function updateBuildList(){
+    let buildList = get("select-build");
+    let buildDescription = get("build-description");
+    let buildButton = get("build-button");
+    let currentSelection = buildList.options[buildList.selectedIndex].text;
+    let woodCost = 0;
+    switch(currentSelection){
+        case "Trap":
+            buildDescription.innerText = convertString("A simple trap that you can hide in the underbrush of the forest. It can catch small critters for meat.");
+            woodCost = 10;
+            break;
+        case "Basket":
+            buildDescription.innerText = convertString("A sturdy wooden basket with woven plant fibers will help you carry more of the fruit you collect.");
+            woodCost = 20;
+            break;
+        case "Harness":
+            buildDescription.innerText = convertString("A lightweight harness with pouches attached will allow one of your trained animals to carry much more fruit as they forage");
+            woodCost = 25;
+            break;
+
+    }
+    if (buildListener != null){
+        unregisterListener(buildListener);
+    }
+    buildListener = registerButtonListener(buildButton,["wood"],[woodCost]);
+}
+function buildItem(){
+    let buildList = get("select-build");
+    let buildDescription = get("build-description");
+    let buildButton = get("build-button");
+    let currentSelection = buildList.options[buildList.selectedIndex].text;
+    let woodCost = 0;
+    switch(currentSelection){
+        case "Trap":
+            wood -= 10;
+            updateResourceDisplay();
+            if(!miscResource['traps']){
+                miscResource['traps'] = 1;
+            } else {
+                miscResource['traps']++;
+            }
+            if(miscResource['traps'] >= 5){
+                get("build-trap").remove();
+                updateBuildList();
+            }
+            updateTraps();
+            break;
+        case "Basket":
+            wood -= 20;
+            updateResourceDisplay();
+            perks.add("basket");
+            get("build-basket").remove();
+            updateBuildList();
+            break;
+        case "Harness":
+            wood -= 25;
+            updateResourceDisplay();
+            if(!miscResource['harness']){
+                miscResource['harness'] = 1;
+            } else {
+                miscResource['harness']++;
+            }
+            break;
+
+    }
+}
+function updateTraps(){
+    trapWrapper = get("trap-wrapper");
+    trapButton = get('check-traps');
+    trapWrapper.classList.remove('hidden');
+    trapNumText = get("trap-num-text");
+    trapNumText.innerText = "Traps " + miscResource['traps'] + "   ";
+    if(miscResource['traps'] < 1){
+        trapButton.disabled = true;
+    } else if (trapCooldown.val < 1){
+        trapButton.disabled = false;
+        trapButton.innerText = "Check Traps"
+    } else {
+        trapButton.disabled = true;
+        trapButton.innerText = "Check Traps (" + trapCooldown.val + "s)";
+    }
+}
+function checkTraps(){
+    let rnd = Math.floor(Math.random()*20);
+    if(rnd > 4) {
+        meat += Math.floor(Math.random()*(2+miscResource['traps']))+3;
+        get('trap-text').innerText = "You kill and harvest the animal" + ((miscResource['traps'] > 1)?"s":"") + " in your trap" + ((miscResource['traps'] > 1)?"s":"");
+        alignment -= 1;
+    } else {
+        get('trap-text').innerText = "Your trap" + ((miscResource['traps'] > 1)?"s are":" is") + " empty";
+    }
+    if(rnd > 10) {
+        meat += Math.floor(Math.random()*(2+miscResource['traps']));
+    }
+    if(rnd > 17) {
+        meat += 10;
+    }
+    updateResourceDisplay();
+    if(Math.floor(Math.random()*5) == 0){
+        miscResource['traps']--;
+        updateTraps();
+        get('trap-text').innerText += ". Unfortunately " + ((miscResource['traps'] > 1)?"one of your traps ":"your trap ") + "has been broken";
+        if(get('build-trap') == null){
+            newChild(buildList,"option","build-trap","Trap");
+            updateBuildList();
+        }
+    }
+    trapCooldown.val = 45;
+    cooldown(trapCooldown,updateTraps);
 }
 
 function get(id){
@@ -883,6 +1179,7 @@ function updateMonCard(element)
                             }
                             mon.resourceProduction = produceResource("meat",amount);
                             intervals.add(mon.resourceProduction);
+                            break;
                         case "Collecting":
                             taskFlavor.innerText = "Producing ";
                             amount = BASE_MON_FRUIT_PRODUCTION * mon.tame/100;
@@ -892,6 +1189,7 @@ function updateMonCard(element)
                             }
                             mon.resourceProduction = produceResource("wood",amount);
                             intervals.add(mon.resourceProduction);
+                            break;
                     }
                 } else {
                     let taskText = get("task-text");
@@ -1057,7 +1355,7 @@ class Mon{
         if (ele == null){
             ele = "";
         }
-        if(unlockedPowers){
+        if(perks['druid']){
             monDescription = ele + " " + this.species + " level " + this.level;
         } else {
             monDescription = ele + " " + this.species
@@ -1162,6 +1460,7 @@ class Mon{
                     }
                     this.resourceProduction = produceResource("meat",amount);
                     intervals.add(this.resourceProduction);
+                    break;
                 case "Collecting":
                     taskFlavor.innerText = "Producing ";
                     amount = BASE_MON_FRUIT_PRODUCTION * this.tame/100;
@@ -1171,6 +1470,7 @@ class Mon{
                     }
                     this.resourceProduction = produceResource("wood",amount);
                     intervals.add(this.resourceProduction);
+                    break;
             }
         }
         
