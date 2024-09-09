@@ -242,6 +242,8 @@ function getResource(name){
             return wood;
         case "mystical herbs":
             return mystical_herbs;
+        case "harness":
+            return miscResource['harness'];
     }
 
 }
@@ -279,6 +281,13 @@ function updateResourceDisplay(){
     }
     if(herbCount != null)
     {herbCount.innerText =  "mystic herbs  " + Math.floor(mystical_herbs)};
+
+    let harnessCount = get("harness-count");
+    if(harnessCount == null && miscResource['harness'] > 0){
+        harnessCount = newChild(get("resource-screen"),"p","harness-count","","resource")
+    }
+    if(harnessCount != null)
+    {harnessCount.innerText =  "harnesses  " + Math.floor(miscResource['harness'])};
 }
 
 //This is called whenever we update the Resource Display to ensure that everything with a cost requirement checks to see if you meet the cost not
@@ -334,7 +343,7 @@ function firstMonEvent(){
                 startingMon.level = 1;
                 let name = prompt("Enter the name for your fox:");
                 startingMon.nickname = name;
-                startingMon.traits = [];
+                startingMon.traits = new Set([]);
                 startingMon.tame = 30;
                 mons.push(startingMon);
                 nameButton.remove();
@@ -573,7 +582,7 @@ function event6(){ //raven
         },
         "Swiftly grab it",[],[],
         () => {
-            exploreText.innerText = convertString("As you swipe your hand the crow quickly flies out of reach. Soon it is nowhere to be seen");
+            exploreText.innerText = convertString("As you swipe your hand the bird quickly flies out of reach. Soon it is nowhere to be seen");
             alignment -= 1;
             setTimeout(resetExplore,15000);
         }
@@ -584,19 +593,19 @@ function event6a(){
     exploreChoice("The raven cocks its head before cautiously eating the berry. It seems to relax a little",
         "Hold out your arm",[],[],
         () => {
-            exploreText.innerText = convertString("As you extend your arm, the crow considers it for a moment before hopping on");
+            exploreText.innerText = convertString("As you extend your arm, the bird considers it for a moment before hopping on");
             let newMon = new Mon();
-            newMon.species = "crow";
+            newMon.species = "raven";
             newMon.level = 1;
-            newMon.nickname = "Crow";
+            newMon.nickname = "Raven";
             newMon.tame = 10;
             mons.push(newMon);
             updateMonList();
             setTimeout(resetExplore,20000);
         },
-        "Grab the crow",[],[],
+        "Grab the bird",[],[],
         () => {
-            exploreText.innerText = convertString("As you swipe your hand, the crow quickly flies out of reach. It seems to give you an almost critical glare before flying away");
+            exploreText.innerText = convertString("As you swipe your hand, the raven quickly flies out of reach. It seems to give you an almost critical glare before flying away");
             alignment -= 3;
             setTimeout(resetExplore,15000);
         }
@@ -676,8 +685,9 @@ function event10(){ //saved by mons[0]
     exploreButton1 = newChild(get('explore-screen'),"button","option1","Run");
     exploreButton1.addEventListener('click',() =>{
         exploreButton1.remove();
-        explroeText.innerText = convertString(`You turn and start running, but it is much faster. As it leaps at you, jaws wide, a dark object collides with it from the side. You turn to see ${mons[0].nickname} wrestling with the wolf on the ground. As they both get to their feet, fur bloodied, ${mons[0].nickname} bares their teeth and growls. The wolf considers for a moment before leaving`)
-    })
+        exploreText.innerText = convertString(`You turn and start running, but it is much faster. As it leaps at you, jaws wide, a dark object collides with it from the side. You turn to see ${mons[0].nickname} wrestling with the wolf on the ground. As they both get to their feet, fur bloodied, ${mons[0].nickname} bares their teeth and growls. The wolf considers for a moment before leaving`);
+        setTimeout(resetExplore,20000);
+    });
 }
 function eventBoring(){
     exploreText = get("explore-text");
@@ -753,7 +763,7 @@ function temple3a(){
     document.title = '❬ ○ ❭'
     button1.addEventListener('click',() =>{
         button1.remove();
-        alignment -= 5;
+        alignment += 5;
         exploreText.innerText = convertString(`The power courses through your body, streams of emerald light twist around you and ${mons[0].nickname}.`);
         document.body.classList.add('shake-window');
     
@@ -827,7 +837,7 @@ function temple3b() {
                button1.classList.add('color-shift');
     button1.addEventListener('click',() =>{
         button1.remove();
-        alignment += 5;
+        alignment -= 3;
         exploreText.innerText = convertString(`The power courses through your body, streams of emerald light twisting around you.`);
         document.body.classList.add('shake-window');
     
@@ -979,12 +989,13 @@ function buildItem(){
             break;
         case "Harness":
             wood -= 25;
-            updateResourceDisplay();
             if(!miscResource['harness']){
                 miscResource['harness'] = 1;
             } else {
                 miscResource['harness']++;
             }
+            updateResourceDisplay();
+            updateMonCard('harness');
             break;
 
     }
@@ -1111,6 +1122,7 @@ function updateMonCard(element)
                 tameDiv = get("mon-tameness");
                 tameDiv.innerText = "tameness " + mon.tame + "%";
                 updateMonCard("feed button");
+                updateMonCard("harness");
                 //Fall through. If we ever update tameness, we need to check the feed button and activities tab
             case "task":
                 if(mon.tame >= 50){
@@ -1162,7 +1174,7 @@ function updateMonCard(element)
                             break;
                         case "Gathering":
                             taskFlavor.innerText = "Producing ";
-                            amount = BASE_MON_FRUIT_PRODUCTION * mon.tame/100;
+                            amount = BASE_MON_FRUIT_PRODUCTION * mon.tame/100 * ((mon.traits.has('harness'))?1.5:1.0);
                             taskOutput.innerText = amount.toFixed(1) + " fruit/10s";
                             if(mon.resourceProduction != null){
                                 intervals.delete(mon.resourceProduction);
@@ -1254,6 +1266,27 @@ function updateMonCard(element)
                     //monActions.appendChild(document.createElement("h4"));
                 }
             break;
+            case "harness":
+                harnessButton = get('harness-button');
+                if(mon.tame >= 75 && !mon.traits.has('harness') && miscResource['harness']){
+                    
+                    if(!harnessButton){
+                        harnessButton = newChild(get('mon-actions'),'button','harness-button',"Equip Harness",'small button');
+                        spacing = newChild(get('mon-stats'),'button',null,'','small button');
+                        spacing.style.visibility = 'hidden';
+                        harnessButton.addEventListener('click',() => {
+                            miscResource['harness']--;
+                            updateResourceDisplay();
+                            mon.traits.add('harness');
+                            updateMonCard();
+                        });
+                    }
+                } else {
+                    if(harnessButton){
+                        harnessButton.remove();
+                    }
+                }
+            break;
         }
     }
 }
@@ -1324,7 +1357,7 @@ class Mon{
         this.nickname = null;
         this.tame = 0;
         this.level = 0;
-        this.traits = [];
+        this.traits = new Set([]);
         this.species = "fox";
         this.element = null;
         this.carnivore = false;
@@ -1355,7 +1388,7 @@ class Mon{
         if (ele == null){
             ele = "";
         }
-        if(perks['druid']){
+        if(perks.has('druid')){
             monDescription = ele + " " + this.species + " level " + this.level;
         } else {
             monDescription = ele + " " + this.species
@@ -1442,7 +1475,7 @@ class Mon{
                     break;
                 case "Gathering":
                     taskFlavor.innerText = "Producing ";
-                    amount = BASE_MON_FRUIT_PRODUCTION * this.tame/100;
+                    amount = BASE_MON_FRUIT_PRODUCTION * this.tame/100 * ((this.traits.has('harness'))?1.5:1.0);
                     taskOutput.innerText = amount.toFixed(1) + " fruit/10s";
                     if(this.resourceProduction != null){
                         intervals.delete(this.resourceProduction);
@@ -1472,6 +1505,17 @@ class Mon{
                     intervals.add(this.resourceProduction);
                     break;
             }
+        }
+        if(this.tame >= 75 && !this.traits.has('harness') && miscResource['harness']){
+            let harnessButton = newChild(monActions,'button','harness-button',"Equip Harness",'small button');
+            let spacing = newChild(monStats,'button',null,'','small button');
+            spacing.style.visibility = 'hidden';
+            harnessButton.addEventListener('click',() => {
+                miscResource['harness']--;
+                updateResourceDisplay();
+                this.traits.add('harness');
+                updateMonCard();
+            });
         }
         
 
