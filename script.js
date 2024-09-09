@@ -1132,9 +1132,9 @@ function updateMonCard(element)
                         newChild(actionList,"option",null,"Collecting");
                         if(mon.element == "astral" || mon.element == "water"){
                             newChild(actionList,"option",null,"Cultivating");
-                        } else if (mon.element = "earth"){
+                        } else if (mon.element == "earth"){
                             newChild(actionList,"option",null,"Digging");
-                        }else if (mon.element = "fire"){
+                        }else if (mon.element == "fire"){
                             newChild(actionList,"option",null,"Smelting");
                         }
 
@@ -1153,9 +1153,9 @@ function updateMonCard(element)
                     actionList.options[2].text = "Collecting";
                     if(mon.element == "astral" || mon.element == "water"){
                         actionList.options[3].text = "Cultivating";
-                    } else if (mon.element = "earth"){
+                    } else if (mon.element == "earth"){
                         actionList.options[3].text = "Digging";
-                    }else if (mon.element = "fire"){
+                    }else if (mon.element == "fire"){
                         actionList.options[3].text = "Smelting";
                     }
         
