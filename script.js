@@ -238,7 +238,7 @@ function getResource(name){
 function updateResourceDisplay(){
     notifyListeners();
 
-    for(resourceName of ['fruit','meat','wood','ore','harness']){
+    for(resourceName of ['fruit','meat','wood','ore','harness','metal']){
         let resCount = get(resourceName + "-count");
         if(resCount == null && resources[resourceName] > 0){
             resCount = newChild(get("resource-screen"),"p",resourceName + "-count","","resource");
