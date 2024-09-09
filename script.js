@@ -8,12 +8,7 @@ class Box{
         this.val--;
     }
 }
-
 const maxBerryBush = 20;
-let fruit = 0;
-let meat = 0;
-let wood = 0;
-let mystical_herbs = 0;
 let numBerries = 0;
 let progress = 0
 let mons = [];
@@ -25,10 +20,13 @@ let alignment = 0;
 let numExplores = 0;
 let perks = new Set([]);
 let buildListener = null;
-let miscResource = {'traps':0};
+let resources = {'fruit':0,'meat':0,'wood':0,'mystic herbs':0,'ore':0,'metal':0,'traps':0};
 
 let BASE_MON_FRUIT_PRODUCTION = 2;
 let BASE_MON_MEAT_PRODUCTION = 4;
+let BASE_MON_HERB_PRODUCTION = 0.25;
+let BASE_MON_ORE_PRODUCTION = 1.0;
+let BASE_MON_CONSUME = 2;
 const ROW_SIZE = 50;
 const EXPLORE_COST = 10;
 function convertString(input){
@@ -180,7 +178,7 @@ function selectTab(tab){
                     activeScreen = get("grove-screen");
                     activeScreen.classList.add('active');
                     document.title = "A Secluded Grove";
-                    if(mons.length < 1 && fruit > 12 && progress < 1){
+                    if(mons.length < 1 && resources['fruit'] > 12 && progress < 1){
                         firstMonEvent();
                     }
                 break;
@@ -190,9 +188,9 @@ function selectTab(tab){
 
 function collectBerry(){
     const berryDiv = event.target;
-    fruit++;
+    resources['fruit']++;
     if(perks.has('basket')){
-        fruit++;
+        resources['fruit']++;
     }
     updateResourceDisplay();
     numBerries--;
@@ -233,61 +231,37 @@ function bushGrowth(){
 }
 
 function getResource(name){
-    switch(name){
-        case "fruit":
-            return fruit;
-        case "meat":
-            return meat;
-        case "wood":
-            return wood;
-        case "mystical herbs":
-            return mystical_herbs;
-        case "harness":
-            return miscResource['harness'];
-    }
+    return resources[name];
 
 }
 
 function updateResourceDisplay(){
     notifyListeners();
-    let fruitCount = get("fruit-count");
-    if(fruitCount == null){
-        fruitCount = document.createElement("p");
-        fruitCount.id = 'fruit-count';
-        fruitCount.classList = "resource";
-        let resourcesPage = get("resource-screen");
-        resourcesPage.appendChild(fruitCount);
-    }
-    fruitCount.innerText = "fruit         " + Math.floor(fruit);
 
-    let meatCount = get("meat-count");
+    for(resourceName of ['fruit','meat','wood','ore','harness']){
+        let resCount = get(resourceName + "-count");
+        if(resCount == null && resources[resourceName] > 0){
+            resCount = newChild(get("resource-screen"),"p",resourceName + "-count","","resource");
+        }
+        if(resCount != null){
+        resCount.innerText = resourceName + "           " + Math.floor(resources[resourceName]);
+        }
+    }
+    /*let meatCount = get("meat-count");
     if(meatCount == null && meat > 0){
         meatCount = newChild(get("resource-screen"),"p","meat-count","","resource")
     }
     if(meatCount != null){
-    meatCount.innerText =  "meat          " + Math.floor(meat);
-    }
+    meatCount.innerText =  "meat          " + Math.floor(resources['meat']);
+    }*/
 
-    let woodCount = get("wood-count");
-    if(woodCount == null && wood > 0){
-        woodCount = newChild(get("resource-screen"),"p","wood-count","","resource")
-    }
-    if(woodCount != null)
-    {woodCount.innerText =  "wood          " + Math.floor(wood);}
 
     let herbCount = get("herb-count");
-    if(herbCount == null && mystical_herbs > 0){
+    if(herbCount == null && resources['mystic herbs'] > 0){
         herbCount = newChild(get("resource-screen"),"p","herb-count","","resource")
     }
     if(herbCount != null)
-    {herbCount.innerText =  "mystic herbs  " + Math.floor(mystical_herbs)};
-
-    let harnessCount = get("harness-count");
-    if(harnessCount == null && miscResource['harness'] > 0){
-        harnessCount = newChild(get("resource-screen"),"p","harness-count","","resource")
-    }
-    if(harnessCount != null)
-    {harnessCount.innerText =  "harnesses  " + Math.floor(miscResource['harness'])};
+    {herbCount.innerText =  "mystic herbs  " + Math.floor(resources['mystic herbs'])};
 }
 
 //This is called whenever we update the Resource Display to ensure that everything with a cost requirement checks to see if you meet the cost not
@@ -331,7 +305,7 @@ function firstMonEvent(){
     feedButton.addEventListener('click', () => {
         feedButton.remove();
         groveText.innerText = "You carefully feed the fox some of your fruit. Soon, the\nfox has fallen into a peaceful slumber.";
-        fruit -= 10;
+        resources['fruit'] -= 10;
         updateResourceDisplay();
         progress = 1;
         setTimeout(function(){
@@ -399,7 +373,7 @@ function updateExploreButton(){
     }
 }
 function explore(){
-    fruit -= EXPLORE_COST;
+    resources['fruit'] -= EXPLORE_COST;
     updateResourceDisplay();
     if(numExplores == 10){
         eventTemple();
@@ -491,7 +465,7 @@ function event2(){ //tame wolf
     exploreChoice("A lone wolf bares its teeth. It barely remains upright, you can tell its strength is nearly gone",
         "Toss it meat",["meat"],[10],
         () => {
-            meat -= 10;
+            resources['meat'] -= 10;
             updateResourceDisplay();
             exploreText.innerText = convertString("You toss the meat towards it. Its anger vanishes the moment it smells food. After devouring what you gave it, it follows close at your heels");
             let newMon = new Mon();
@@ -508,7 +482,7 @@ function event2(){ //tame wolf
         "Finish it off",[],[],
         () => {
             exploreText.innerText = convertString("The fight is quick and bloody. You leave with bite marks on your arm and a new pelt");
-            meat += 7;
+            resources['meat'] += 7;
             updateResourceDisplay();
             alignment -= 6;
             setTimeout(resetExplore,20000);
@@ -522,7 +496,7 @@ function event3(){ //wood
         exploreButton.classList.add('hidden');
     }
     exploreText.innerText = convertString(`Sticks and dead brush cover the forest floor. You collect as much as you can in your arms and bring it back to the grove. ${mons[0].nickname} walks over and greets you excitedly when you return`);
-    wood += 15;
+    resources['wood'] += 15;
     updateResourceDisplay();
     setTimeout(resetExplore,15000);
 }
@@ -533,7 +507,7 @@ function event4(){ //blackberries
         exploreButton.classList.add('hidden');
     }
     exploreText.innerText = convertString(`A grove of blackberry bushes filled with ripe berries greets you. You gather what you can carry. Back at camp ${mons[0].nickname} puts on puppy dog eyes to beg for one`);
-    fruit += 25;
+    resources['fruit'] += 25;
     updateResourceDisplay();
     setTimeout(resetExplore,15000);
 }
@@ -542,7 +516,7 @@ function event5(){ //fawn
     exploreChoice("A shivering fawn curls up next to its dead mother",
         "Coax the fawn with food",["fruit"],[10],
         () => {
-            fruit -= 10;
+            resources['fruit'] -= 10;
             updateResourceDisplay();
             exploreText.innerText = convertString("With a gentle hand you place a berry on the ground. The faun walks over and hungrily eats it. You lead the faun back to the safety of the grove");
             let newMon = new Mon();
@@ -559,7 +533,7 @@ function event5(){ //fawn
         () => {
             exploreText.innerText = convertString("No point in letting so much meat go to waste.");
             alignment -= 4;
-            meat += 20;
+            resources['meat'] += 20;
             updateResourceDisplay;
             setTimeout(resetExplore,20000);
         }
@@ -576,7 +550,7 @@ function event6(){ //raven
         },
         "Offer food",["fruit"],[5],
         () => {
-            fruit -= 5;
+            resources['fruit'] -= 5;
             updateResourceDisplay();
             event6a();
         },
@@ -617,14 +591,14 @@ function event7(){ //creek
         "Search the water",[],[],
         () => {
             exploreText.innerText = convertString("The crystal clear water is home to schools of fish. You manage to catch a few to bring back to the grove");
-            meat += 10;
+            resources['meat'] += 10;
             updateResourceDisplay();
             setTimeout(resetExplore,15000);
         },
         "Follow it downstream",[],[],
         () => {
             exploreText.innerText = convertString("Downstream, fruitbearing trees flourish near the cool water. You collect some fruit before heading back");
-            fruit += 13;
+            resources['fruit'] += 13;
             updateResourceDisplay();
             setTimeout(resetExplore,15000);
         }
@@ -637,7 +611,7 @@ function event8(){ //rare herbs
     }
     let exploreText = get("explore-text");
     exploreText.innerText = convertString("You find a patch of rare herbs. Legends say they may have magical properties. You carefully harvest them.");
-    mystical_herbs += 2;
+    resources['mystic herbs'] += 2;
     updateResourceDisplay();
     setTimeout(resetExplore,15000);
 }
@@ -647,11 +621,11 @@ function event9(){ //fairy circle
         "You find a perfect circle formed out of white mushrooms",
         "Offer fruit",["fruit"],[15],
         () => {
-            fruit -= 15;
+            resources['fruit'] -= 15;
             updateResourceDisplay();
-            if(Math.random < 0.5){
+            if(Math.random() < 0.5){
                 exploreText.innerText = convertString("As you lay the fruit inside the circle, it transforms into a thousand dandelion seeds that blow away. In its place are a few flowers that glow with a mystical light");
-                mystical_herbs += 3;
+                resources['mystic herbs'] += 3;
                 updateResourceDisplay();
                 setTimeout(resetExplore,25000);
             } else {
@@ -662,7 +636,7 @@ function event9(){ //fairy circle
         },
         "Offer meat",["meat"],[15],
         () => {
-            meat -= 15;
+            resources['meat'] -= 15;
             updateResourceDisplay();
             exploreText.innerText = convertString("The sky suddenly grows red as you set the meat down. You can hear a deep laughter as the meat seems to melt away. " + (alignment > -15)?"You quickly run from the circle, and the sky returns to normal":"You revel in the crimson light until the last drop has faded");
             alignment -= 5;
@@ -732,7 +706,7 @@ function temple2a(){
             alignment += 3;
             button1.remove();
             templeHerbs = true;
-            mystical_herbs += 3;
+            resources['mystic herbs'] += 3;
             updateResourceDisplay();
         });
     } else {
@@ -778,10 +752,11 @@ function temple3a(){
             {
                 button1.remove();
                 exploreText.innerText = convertString(`With great reverence, you take hold of the crystal again. It resonates with the power you feel inside, but does not react like last time. ${mons[0].nickname} bows their head towards the crystal. Both of you return to the grove, crystal in hand. As you return to the sunlight, you notice ${mons[0].nickname}'s pelt now has streaks of vibrant, almost glowing, green.`);
-                perks.add('druid');
+                get("grove-text").innerText = convertString(`With the Heart of the Forest's power, you and ${mons[0].nickname} should be able to unlock the latent elemental energies within the other animals.`);
+                unlockDruid();
                 setTimeout(resetExplore,20000);
             });
-        },10000);
+        },7000);
     });
 }
 function temple1b(){
@@ -807,7 +782,7 @@ function temple2b(){
             alignment -= 3;
             button1.remove();
             templeHerbs = true;
-            mystical_herbs += 5;
+            resources['mystic herbs'] += 5;
             updateResourceDisplay();
         });
     } else {
@@ -852,12 +827,19 @@ function temple3b() {
             {
                 button1.remove();
                 exploreText.innerText = convertString(`You return to the grove, crystal in hand. As you return to the sunlight, you notice ${mons[0].nickname}'s pelt now has streaks of vibrant, almost glowing, green. It follows close at your heels, head bowed.`);
-                perks.add('druid');
+                get("grove-text").innerText = convertString("With the your newfound power and some magical plants, you should be able to unlock the latent elemental abilities of your animal servants.");
+                unlockDruid();
                 setTimeout(resetExplore,20000);
             });
-        },10000);
+        },7000);
     });
 }
+function unlockDruid(){
+    perks.add('druid');
+    mons[0].element = "astral";
+    updateMonCard();
+}
+
 //A function used in creating events. Used for simple events with a few buttons
 function exploreChoice(mainText,button1Text,button1Req,button1Amount,button1Func,button2Text,button2Req,button2Amount,button2Func,button3Text,button3Req,button3Amount,button3Func){
     let exploreButton = get("explore-button");
@@ -967,32 +949,32 @@ function buildItem(){
     let woodCost = 0;
     switch(currentSelection){
         case "Trap":
-            wood -= 10;
+            resources['wood'] -= 10;
             updateResourceDisplay();
-            if(!miscResource['traps']){
-                miscResource['traps'] = 1;
+            if(!resources['traps']){
+                resources['traps'] = 1;
             } else {
-                miscResource['traps']++;
+                resources['traps']++;
             }
-            if(miscResource['traps'] >= 5){
+            if(resources['traps'] >= 5){
                 get("build-trap").remove();
                 updateBuildList();
             }
             updateTraps();
             break;
         case "Basket":
-            wood -= 20;
+            resources['wood'] -= 20;
             updateResourceDisplay();
             perks.add("basket");
             get("build-basket").remove();
             updateBuildList();
             break;
         case "Harness":
-            wood -= 25;
-            if(!miscResource['harness']){
-                miscResource['harness'] = 1;
+            resources['wood'] -= 25;
+            if(!resources['harness']){
+                resources['harness'] = 1;
             } else {
-                miscResource['harness']++;
+                resources['harness']++;
             }
             updateResourceDisplay();
             updateMonCard('harness');
@@ -1005,8 +987,8 @@ function updateTraps(){
     trapButton = get('check-traps');
     trapWrapper.classList.remove('hidden');
     trapNumText = get("trap-num-text");
-    trapNumText.innerText = "Traps " + miscResource['traps'] + "   ";
-    if(miscResource['traps'] < 1){
+    trapNumText.innerText = "Traps " + resources['traps'] + "   ";
+    if(resources['traps'] < 1){
         trapButton.disabled = true;
     } else if (trapCooldown.val < 1){
         trapButton.disabled = false;
@@ -1019,23 +1001,23 @@ function updateTraps(){
 function checkTraps(){
     let rnd = Math.floor(Math.random()*20);
     if(rnd > 4) {
-        meat += Math.floor(Math.random()*(2+miscResource['traps']))+3;
-        get('trap-text').innerText = "You kill and harvest the animal" + ((miscResource['traps'] > 1)?"s":"") + " in your trap" + ((miscResource['traps'] > 1)?"s":"");
+        resources['meat'] += Math.floor(Math.random()*(2+resources['traps']))+3;
+        get('trap-text').innerText = "You kill and harvest the animal" + ((resources['traps'] > 1)?"s":"") + " in your trap" + ((resources['traps'] > 1)?"s":"");
         alignment -= 1;
     } else {
-        get('trap-text').innerText = "Your trap" + ((miscResource['traps'] > 1)?"s are":" is") + " empty";
+        get('trap-text').innerText = "Your trap" + ((resources['traps'] > 1)?"s are":" is") + " empty";
     }
     if(rnd > 10) {
-        meat += Math.floor(Math.random()*(2+miscResource['traps']));
+        resources['meat'] += Math.floor(Math.random()*(2+resources['traps']));
     }
     if(rnd > 17) {
-        meat += 10;
+        resources['meat'] += 10;
     }
     updateResourceDisplay();
     if(Math.floor(Math.random()*5) == 0){
-        miscResource['traps']--;
+        resources['traps']--;
         updateTraps();
-        get('trap-text').innerText += ". Unfortunately " + ((miscResource['traps'] > 1)?"one of your traps ":"your trap ") + "has been broken";
+        get('trap-text').innerText += ". Unfortunately " + ((resources['traps'] > 1)?"one of your traps ":"your trap ") + "has been broken";
         if(get('build-trap') == null){
             newChild(buildList,"option","build-trap","Trap");
             updateBuildList();
@@ -1043,6 +1025,7 @@ function checkTraps(){
     }
     trapCooldown.val = 45;
     cooldown(trapCooldown,updateTraps);
+    updateTraps();
 }
 
 function get(id){
@@ -1079,20 +1062,25 @@ function updateMonList(){
 //Returns a function that adds the desired resource. This is for use in setInterval()
 function produceResource(resource, amount){
     return function() {
-        switch(resource){
-            case "fruit":
-                fruit += amount;
-                break;
-            case "meat":
-                meat += amount;
-                break;
-            case "wood":
-                wood += amount;
-                break;
-            case "mystical herbs":
-                mystical_herbs += amount;
-                break;
+        resources[resource] += amount;
+        updateResourceDisplay();
+    }
+}
+//Like produce resource except it also consumes resources and can have multiple entries. ALL NEGATIVE ENTRIES SHOULD BE AT THE BEGINNING
+function produceConsumeResource(resourceNames,amount){
+    return function() {
+        for(i in resourceNames){
+            if(amount[i] < 0){
+                resources[resourceNames[i]] += amount[i];
+                if (resources[resourceNames[i]] < 0){
+                    resources[resourceNames[i]] -= amount[i];
+                    return;
+                }
+            } else {
+                resources[resourceNames[i]] += amount[i];
+            }
         }
+        
         updateResourceDisplay();
     }
 }
@@ -1142,6 +1130,13 @@ function updateMonCard(element)
                             newChild(actionList,"option",null,"Gathering");
                         }
                         newChild(actionList,"option",null,"Collecting");
+                        if(mon.element == "astral" || mon.element == "water"){
+                            newChild(actionList,"option",null,"Cultivating");
+                        } else if (mon.element = "earth"){
+                            newChild(actionList,"option",null,"Digging");
+                        }else if (mon.element = "fire"){
+                            newChild(actionList,"option",null,"Smelting");
+                        }
 
                         actionList.selectedIndex = mon.selectedTask;
                         actionList.addEventListener('change', function(){
@@ -1156,6 +1151,13 @@ function updateMonCard(element)
                         actionList.options[1].text = "Gathering";
                     }
                     actionList.options[2].text = "Collecting";
+                    if(mon.element == "astral" || mon.element == "water"){
+                        actionList.options[3].text = "Cultivating";
+                    } else if (mon.element = "earth"){
+                        actionList.options[3].text = "Digging";
+                    }else if (mon.element = "fire"){
+                        actionList.options[3].text = "Smelting";
+                    }
         
                     actionList.selectedIndex = mon.selectedTask;
                     taskFlavor = get("task-flavor");
@@ -1166,7 +1168,7 @@ function updateMonCard(element)
                     switch(actionList.options[actionList.selectedIndex].text){
                         case "Resting":
                             taskFlavor.innerText = "Resting...";
-                            taskOutput.innerText = "";
+                            taskOutput.innerText = ".";
                             if(mon.resourceProduction != null){
                                 intervals.delete(mon.resourceProduction);
                                 mon.resourceProduction = null;
@@ -1174,7 +1176,7 @@ function updateMonCard(element)
                             break;
                         case "Gathering":
                             taskFlavor.innerText = "Producing ";
-                            amount = BASE_MON_FRUIT_PRODUCTION * mon.tame/100 * ((mon.traits.has('harness'))?1.5:1.0);
+                            amount = BASE_MON_FRUIT_PRODUCTION * mon.tame/100 * ((mon.traits.has('harness'))?1.5:1.0) * ((mon.element == "air")?1.2:1.0);
                             taskOutput.innerText = amount.toFixed(1) + " fruit/10s";
                             if(mon.resourceProduction != null){
                                 intervals.delete(mon.resourceProduction);
@@ -1184,7 +1186,7 @@ function updateMonCard(element)
                             break;
                         case "Hunting":
                             taskFlavor.innerText = "Producing ";
-                            amount = BASE_MON_MEAT_PRODUCTION * mon.tame/100;
+                            amount = BASE_MON_MEAT_PRODUCTION * mon.tame/100 * ((mon.element== "air")?1.2:1.0);
                             taskOutput.innerText = amount.toFixed(1) + " meat/10s";
                             if(mon.resourceProduction != null){
                                 intervals.delete(mon.resourceProduction);
@@ -1194,12 +1196,47 @@ function updateMonCard(element)
                             break;
                         case "Collecting":
                             taskFlavor.innerText = "Producing ";
-                            amount = BASE_MON_FRUIT_PRODUCTION * mon.tame/100;
+                            amount = BASE_MON_FRUIT_PRODUCTION * mon.tame/100 * ((mon.element== "air")?1.2:1.0);
                             taskOutput.innerText = amount.toFixed(1) + " wood/10s";
                             if(mon.resourceProduction != null){
                                 intervals.delete(mon.resourceProduction);
                             }
                             mon.resourceProduction = produceResource("wood",amount);
+                            intervals.add(mon.resourceProduction);
+                            break;
+                        case "Cultivating":
+                            taskFlavor.innerText = "Producing \nConsuming ";
+                            amount = BASE_MON_HERB_PRODUCTION * mon.tame/100;
+                            consume = BASE_MON_CONSUME;
+                            monEats = ((mon.carnivore)?"meat":"fruit");
+                            taskOutput.innerText = amount.toFixed(2) + " herbs/10s\n" + consume.toFixed(1) + " " + monEats + "/10s";
+                            if(mon.resourceProduction != null){
+                                intervals.delete(mon.resourceProduction);
+                            }
+                            mon.resourceProduction = produceConsumeResource([monEats,"mystic herbs"],[consume*-1,amount]);
+                            intervals.add(mon.resourceProduction);
+                        break;
+                        case "Digging":
+                            taskFlavor.innerText = "Producing \nConsuming ";
+                            amount = BASE_MON_ORE_PRODUCTION * mon.tame/100;
+                            consume = BASE_MON_CONSUME;
+                            monEats = ((mon.carnivore)?"meat":"fruit");
+                            taskOutput.innerText = amount.toFixed(1) + " ore/10s\n" + consume.toFixed(1) + " " + monEats + "/10s";
+                            if(mon.resourceProduction != null){
+                                intervals.delete(mon.resourceProduction);
+                            }
+                            mon.resourceProduction = produceConsumeResource([monEats,"ore"],[consume*-1,amount]);
+                            intervals.add(mon.resourceProduction);
+                            break;
+                        case "Smelting":
+                            taskFlavor.innerText = "Producing \nConsuming \n ";
+                            amount = BASE_MON_ORE_PRODUCTION * mon.tame/100;
+                            consume = BASE_MON_CONSUME;
+                            taskOutput.innerText = amount.toFixed(1) + " metal/10s\n" + consume.toFixed(1) + " wood/10s\n" + "1.0 ore/10s";
+                            if(mon.resourceProduction != null){
+                                intervals.delete(mon.resourceProduction);
+                            }
+                            mon.resourceProduction = produceConsumeResource(["wood","ore","metal"],[consume*-1,-1,amount]);
                             intervals.add(mon.resourceProduction);
                             break;
                     }
@@ -1243,9 +1280,9 @@ function updateMonCard(element)
                         copyFeedMon.addEventListener('click',() =>{
                             unregisterListener(listener);
                             if(mon.carnivore){
-                                meat -= feedCost;
+                                resources['meat'] -= feedCost;
                             } else {
-                            fruit -= feedCost;
+                                resources['fruit'] -= feedCost;
                             }
                             updateResourceDisplay();
                             if(mons.length < 2){
@@ -1268,14 +1305,14 @@ function updateMonCard(element)
             break;
             case "harness":
                 harnessButton = get('harness-button');
-                if(mon.tame >= 75 && !mon.traits.has('harness') && miscResource['harness']){
+                if(mon.tame >= 75 && !mon.traits.has('harness') && resources['harness']){
                     
                     if(!harnessButton){
                         harnessButton = newChild(get('mon-actions'),'button','harness-button',"Equip Harness",'small button');
                         spacing = newChild(get('mon-stats'),'button',null,'','small button');
                         spacing.style.visibility = 'hidden';
                         harnessButton.addEventListener('click',() => {
-                            miscResource['harness']--;
+                            resources['harness']--;
                             updateResourceDisplay();
                             mon.traits.add('harness');
                             updateMonCard();
@@ -1285,6 +1322,34 @@ function updateMonCard(element)
                     if(harnessButton){
                         harnessButton.remove();
                     }
+                }
+            break;
+            case "confer":
+                let conferButton1 = get("confer-button-1");
+                let conferButton2 = get("confer-button-2");
+                if(!conferButton1 && mon.element.length < 1 && perks.has('druid')){
+                    let ele = (mon.carnivore)?"fire":"water";
+                    let ele2 = (mon.eleChoice == 0)?"air":"earth";
+                    conferButton1 = newChild(get('mon-stats'),'button','confer-button-1','Confer ' + ele,"small button");
+                    conferButton2 = newChild(get('mon-actions'),'button','confer-button-2','Confer ' + ele2,"small button");
+                    registerButtonListener(conferButton1,["mystic herbs"],[4]);
+                    registerButtonListener(conferButton2,["mystic herbs"],[4]);
+                    conferButton1.addEventListener('click',() => {
+                        conferButton1.remove();
+                        conferButton2.remove();
+                        resources['mystic herbs'] -=4;
+                        updateResourceDisplay();
+                        mon.element = ele;
+                        updateMonCard();
+                    });
+                    conferButton2.addEventListener('click',() => {
+                        conferButton1.remove();
+                        conferButton2.remove();
+                        resources['mystic herbs'] -=4;
+                        updateResourceDisplay();
+                        mon.element = ele2;
+                        updateMonCard();
+                    });
                 }
             break;
         }
@@ -1359,11 +1424,12 @@ class Mon{
         this.level = 0;
         this.traits = new Set([]);
         this.species = "fox";
-        this.element = null;
+        this.element = "";
         this.carnivore = false;
         this.feedCooldown = new Box(0);
         this.resourceProduction = null;
         this.selectedTask = 0;
+        this.eleChoice = Math.floor(Math.random()*2);
     }
 
 
@@ -1419,9 +1485,9 @@ class Mon{
             feedMon.addEventListener('click',() =>{
                 unregisterListener(listener);
                 if(this.carnivore){
-                    meat -= feedCost;
+                    resources['meat'] -= feedCost;
                 } else {
-                fruit -= feedCost;
+                    resources['fruit'] -= feedCost;
                 }
                 updateResourceDisplay();
                 if(mons.length < 2){
@@ -1438,7 +1504,8 @@ class Mon{
             });
             }
         } else {
-            monActions.appendChild(document.createElement("h4"));
+            let feedMon = newChild(monActions,"button","feed-button","Feed " + this.feedCooldown.val + "s","small");
+            feedMon.style.visibility = "hidden";
         }
         
         if(this.tame >= 50){
@@ -1454,6 +1521,13 @@ class Mon{
                 newChild(actionList,"option",null,"Gathering");
             }
             newChild(actionList,"option",null,"Collecting");
+            if(this.element == "astral" || this.element == "water"){
+                newChild(actionList,"option",null,"Cultivating");
+            } else if (this.element == "earth"){
+                newChild(actionList,"option",null,"Digging");
+            } else if (this.element == "fire"){
+                newChild(actionList,"option",null,"Smelting");
+            }
 
             actionList.selectedIndex = this.selectedTask;
             actionList.addEventListener('change', function(){
@@ -1467,7 +1541,7 @@ class Mon{
             switch(actionList.options[actionList.selectedIndex].text){
                 case "Resting":
                     taskFlavor.innerText = "Resting...";
-                    taskOutput.innerText = "";
+                    taskOutput.innerText = ".";
                     if(this.resourceProduction != null){
                         intervals.delete(this.resourceProduction);
                         this.resourceProduction = null;
@@ -1475,7 +1549,7 @@ class Mon{
                     break;
                 case "Gathering":
                     taskFlavor.innerText = "Producing ";
-                    amount = BASE_MON_FRUIT_PRODUCTION * this.tame/100 * ((this.traits.has('harness'))?1.5:1.0);
+                    amount = BASE_MON_FRUIT_PRODUCTION * this.tame/100 * ((this.traits.has('harness'))?1.5:1.0) * ((this.element == "water" || this.element== "air")?1.2:1.0);
                     taskOutput.innerText = amount.toFixed(1) + " fruit/10s";
                     if(this.resourceProduction != null){
                         intervals.delete(this.resourceProduction);
@@ -1486,7 +1560,7 @@ class Mon{
                     break;
                 case "Hunting":
                     taskFlavor.innerText = "Producing ";
-                    amount = BASE_MON_MEAT_PRODUCTION * this.tame/100;
+                    amount = BASE_MON_MEAT_PRODUCTION * this.tame/100 * ((this.element== "air")?1.2:1.0);
                     taskOutput.innerText = amount.toFixed(1) + " meat/10s";
                     if(this.resourceProduction != null){
                         intervals.delete(this.resourceProduction);
@@ -1496,7 +1570,7 @@ class Mon{
                     break;
                 case "Collecting":
                     taskFlavor.innerText = "Producing ";
-                    amount = BASE_MON_FRUIT_PRODUCTION * this.tame/100;
+                    amount = BASE_MON_FRUIT_PRODUCTION * this.tame/100 * ((this.element== "air")?1.2:1.0);
                     taskOutput.innerText = amount.toFixed(1) + " wood/10s";
                     if(this.resourceProduction != null){
                         intervals.delete(this.resourceProduction);
@@ -1504,16 +1578,76 @@ class Mon{
                     this.resourceProduction = produceResource("wood",amount);
                     intervals.add(this.resourceProduction);
                     break;
+                case "Cultivating":
+                    taskFlavor.innerText = "Producing \nConsuming ";
+                    amount = BASE_MON_HERB_PRODUCTION * this.tame/100;
+                    consume = BASE_MON_CONSUME;
+                    monEats = ((this.carnivore)?"meat":"fruit");
+                    taskOutput.innerText = amount.toFixed(2) + " herbs/10s\n" + consume.toFixed(1) + " " +  monEats + "/10s";
+                    if(this.resourceProduction != null){
+                        intervals.delete(this.resourceProduction);
+                    }
+                    this.resourceProduction = produceConsumeResource([monEats,"mystic herbs"],[consume*-1,amount]);
+                    intervals.add(this.resourceProduction);
+                break;
+                case "Digging":
+                    taskFlavor.innerText = "Producing \nConsuming ";
+                    amount = BASE_MON_ORE_PRODUCTION * this.tame/100;
+                    consume = BASE_MON_CONSUME;
+                    monEats = ((this.carnivore)?"meat":"fruit");
+                    taskOutput.innerText = amount.toFixed(1) + " ore/10s\n" + consume.toFixed(1) + " " + monEats + "/10s";
+                    if(this.resourceProduction != null){
+                        intervals.delete(this.resourceProduction);
+                    }
+                    this.resourceProduction = produceConsumeResource([monEats,"ore"],[consume*-1,amount]);
+                    intervals.add(this.resourceProduction);
+                    break;
+                case "Smelting":
+                    taskFlavor.innerText = "Producing \nConsuming \n ";
+                    amount = BASE_MON_ORE_PRODUCTION * this.tame/100;
+                    consume = BASE_MON_CONSUME;
+                    taskOutput.innerText = amount.toFixed(1) + " metal/10s\n" + consume.toFixed(1) + " wood/10s\n" + "1.0 ore/10s";
+                    if(this.resourceProduction != null){
+                        intervals.delete(this.resourceProduction);
+                    }
+                    this.resourceProduction = produceConsumeResource(["wood","ore","metal"],[consume*-1,-1,amount]);
+                    intervals.add(this.resourceProduction);
+                    break;
+            
             }
         }
-        if(this.tame >= 75 && !this.traits.has('harness') && miscResource['harness']){
+        if(this.tame >= 75 && !this.traits.has('harness') && resources['harness']){
             let harnessButton = newChild(monActions,'button','harness-button',"Equip Harness",'small button');
             let spacing = newChild(monStats,'button',null,'','small button');
             spacing.style.visibility = 'hidden';
             harnessButton.addEventListener('click',() => {
-                miscResource['harness']--;
+                resources['harness']--;
                 updateResourceDisplay();
                 this.traits.add('harness');
+                updateMonCard();
+            });
+        }
+        if(this.element.length < 1 && perks.has('druid')){
+            let element = (this.carnivore)?"fire":"water";
+            let element2 = (this.eleChoice == 0)?"air":"earth";
+            let conferButton1 = newChild(monStats,"button",'confer-button-1','Confer ' + element,"small button");
+            let conferButton2 = newChild(monActions,"button",'confer-button-2','Confer ' + element2,"small button");
+            registerButtonListener(conferButton1,["mystic herbs"],[4]);
+            registerButtonListener(conferButton2,["mystic herbs"],[4]);
+            conferButton1.addEventListener('click',() => {
+                conferButton1.remove();
+                conferButton2.remove();
+                resources['mystic herbs'] -=4;
+                updateResourceDisplay();
+                this.element = element;
+                updateMonCard();
+            });
+            conferButton2.addEventListener('click',() => {
+                conferButton1.remove();
+                conferButton2.remove();
+                resources['mystic herbs'] -=4;
+                updateResourceDisplay();
+                this.element = element2;
                 updateMonCard();
             });
         }
