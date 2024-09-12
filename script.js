@@ -900,7 +900,7 @@ function event12a() {
         () => {
             resources["meat"] -= 20;
             updateResourceDisplay();
-            exploreText.innerText = convertString("You toss the meat to the jaguar who accepts it and begins to eat. After it is finished, it gets up and leads you back to your own camp. There is climbs on top of your stockpile of resources and lays down, watching over the grove like a king over their kingdom.");
+            exploreText.innerText = convertString("You toss the meat to the jaguar who accepts it and begins to eat. After it is finished, it gets up and leads you back to your own camp. There, it climbs on top of your stockpile of resources and lays down, watching over the grove like a king over their kingdom.");
             foundJaguar = true;
             jaguar = new Mon();
             jaguar.nickname = "Self Appointed Ruler";
@@ -1102,8 +1102,9 @@ function event19(){ //abandoned mine
     let exploreText = get("explore-text");
     exploreChoice(
         "Near the outskirts of the forest, you find the remnants of a mine. Signs of human activity in the forest worry you.",
-        "Enter the mine",[torch],[1],
+        "Enter the mine",["torch"],[1],
         () => {
+            resources['torch']--;
             exploreText.innerText = convertString("Luckily the mine has been long abandoned. By the light of your fire you find a little ore that was never taken back.");
             resources['ore'] += Math.floor(Math.random()*7)+1;
             updateResourceDisplay();
@@ -1123,6 +1124,7 @@ function event20() { //misc temple
         "Explore",['torch'],[1],
         () =>
         {
+            resources['torch']--;
             rnd = Math.floor(Math.random()*5);
             switch (rnd){
                 case 0:
@@ -1390,6 +1392,10 @@ function unlockDruid(){
 }
 function eventContact() {
     exploreText = get('explore-text');
+    exploreButton = get("explore-button");
+        if(!exploreButton.classList.contains('hidden')){
+            exploreButton.classList.add('hidden');
+        }
     exploreText.innerText = convertString("As you enjoy a walk in the woods you hear an unnatural sounds. Talking. Humans, they\'re here. You see them up ahead investigating some ancient ruins. They are searching for the crystal, they must be. You hurry back to the grove. The grove is not safe anymore. It is time for war.");
     warButton = newChild(get('explore-screen'),"button",null,"To War!");
     setOnClick(warButton,() => {
@@ -2091,7 +2097,7 @@ class Mon{
             } else {
             let feedMon = newChild(monActions,"button","feed-button","Feed","small");
             let feedCost = 5*mons.length + 10;
-            let listener
+            feedMon.removeEventListener('click',feedCurrMon);
             if(this.carnivore){
                 feedListener = registerButtonListener(feedMon,["meat"],[feedCost]);
             }else {
