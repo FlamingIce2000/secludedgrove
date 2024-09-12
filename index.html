@@ -6,7 +6,7 @@
     <title>A Secluded Grove</title>
     <style>
         .hidden {
-            display: none;
+            display: none !important;
         }
         body {
             font-family: monospace;
@@ -36,25 +36,38 @@
 
         }
 
-        /*[title] {
-        display: block;
-        margin: 0 0 1em 0;
+        .tooltip-container {
+        position: relative;
+        display: inline-block;
         }
 
+        .tooltip-text {
+        visibility: hidden;
+        background-color: #E0E0E0;
+        border: 1px solid black;
+        color: #000;
+        text-align: center;
+        padding: 2px;
+        border-radius: 4px;
+        font-size: 11px;
 
-        [title] + span.createdTooltip {
-        display: none;
-        border: 2px solid #f90;
-        background-color: rgba(255, 255, 255, 0.8);
-        padding: 0.2em 0.5em;
-        border-radius: 0.75em;
-        }
+        white-space: nowrap;
 
-
-        [title]:hover + span.createdTooltip {
-        display: block;
         position: absolute;
-        }*/
+        z-index: 1;
+        bottom: 100%; 
+        left: 50%;
+        transform: translateX(-50%);
+
+
+        transition: visibility 0s, opacity 0.2s ease-in-out;
+        opacity: 0;
+        }
+
+        .tooltip-container:hover .tooltip-text {
+        visibility: visible; 
+        opacity: 1;
+        }
         .screen {
             display: none; /* Hide all screens by default */
             height: 100vh;
@@ -226,9 +239,80 @@
             
         </div>
         <div id="explore-screen" class = "screen">
+            <pre id="explore-image">
+                                                        ,gmNMNNw,
+                                     r"`"w            gP         ]g
+                    ,mm,       ,~~~"      '"^,       @            ]p
+          ,,;,,  ,N"    `*g   ]               F  ,,,@       ,      Nw
+     ,w~4`     *g`         N,,,)~wwwwwwwwwww=R~wP           [        ]p
+   /"                            %        P               , K ,pMmw   @
+   @                              ]       b                ]P][       *Mm,
+   ]p                             @        '*mwwr      C   ]P]"Np        ]P
+    M,    g          [         gP    *       ,ww ],    N, ] ]_,"N,     ,@
+ ,N"` "**"@N         |   ,r`""Mg      ,     #      "*MNM""$ ]     `""""
+g            "*rhw,,,#"`        K    ^      "g    , $ @   ] |
+@      N         @   ]          @              """ "*N@   |']   ,P""*w
+"W,  ,  "  gC   ]`   ] ]g     ,P                      \b, | | g*      "*g
+     "W  @   ,@ "Ng ]gP `"*"`                          \gYN |L          P
+         |g      \   T                        /,       [ ]@ ] "N,,,,,,,gP
+         @|       ]  |    ^          ,/,\    /  L       @ ',/      T
+         @w\      |  |   / \     / \ /   \  /   \   ,    Y NL      ;,L
+      ,/4CP>$w-   |  |  /   \   /  \,  T '  /   \  /]   ]@  Nv,y   Jj"
+    ;       . ,P  |  | ],,T w  /~   \  ],, L ,. ,< n  y  ][ ;l `] `PvJ.
+         . *4     |  [    |     ^^)-"       "+^~^ ^  (  ]P  ~*^"``
+-              ^j/  $-^""````""^^~.wQ"      ``";^-~~=.,@        
+                .@   ],"    ~      ~-"  `^w.   :,,-~     
+*                                     [  ` ]    n w        
+                 '                  x"  ,w"w    ,r    
+                   /      '    ,wr" ,w^`     ,m"      
+                      ,,w=r""`  ,wr"  ===  ,e`      
+                ,w*"`    ,wr"``        ,w*     
+           ,m"     ,w*`            ,r`       
+            </pre>
             <div id="explore-text">The untamed forest lies before you.<br>Who knows what you might find?</div>
             <p></p>
             <button id="explore-button" onclick="explore()">Venture Forth</button>
+        </div>
+        <div id="war-screen" class = "screen">
+            <div id="map-container">
+                <pre id="map-image">
+.-.------------------------------------------------------------------------.-.
+((o))                                                                          )
+ \U/____  ______________         _____   ____          _______________________/
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |                                                                         |
+  |____        ____________    ________  ____  ________        _____________|
+ /A\                                                                         \
+((o))                                                                         )
+ '-'-------------------------------------------------------------------------'
+             </pre>
+            </div>
         </div>
     </div>
     <script src="script.js"></script>

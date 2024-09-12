@@ -20,7 +20,9 @@ let alignment = 0;
 let numExplores = 0;
 let perks = new Set([]);
 let buildListener = null;
-let resources = {'fruit':0,'meat':0,'wood':0,'mystic herbs':0,'ore':0,'metal':0,'traps':0};
+let resources = {'fruit':0,'meat':0,'wood':0,'mystic herbs':0,'ore':0,'metal':0,'traps':0,'torch':0};
+let exploreListener = null;
+let feedListener = null;
 
 let BASE_MON_FRUIT_PRODUCTION = 2;
 let BASE_MON_MEAT_PRODUCTION = 4;
@@ -65,8 +67,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loadGame();
     } else */{
     const gameOutput = get('game-output');
-    const actionButton = get('look-button');
-    actionButton.addEventListener('click', () => {
+    let actionButton = get('look-button');
+    setOnClick(actionButton, () => {
         groveIcon = `
 |     |
 |Grove|
@@ -111,15 +113,14 @@ const berryLocations = [C(100,115),C(115,113),C(127,115),C(89,112),C(75,114),C(6
 ];
 function addBerry(){
     let thisCoord = berryLocations[Math.floor(Math.random() * berryLocations.length)];
-    let berryDiv = document.createElement("div");
-    berryDiv.innerText = "O";
-    berryDiv.classList = "clickable berry";
+    let berryDiv = newChild(get('bush-wrapper'),"div",null,"O","clickable berry");
+    //let berryDiv = document.createElement("div");
+    //berryDiv.innerText = "O";
+    //berryDiv.classList = "clickable berry";
     berryDiv.style.left = thisCoord.x + "px";
     berryDiv.style.top = thisCoord.y + "px";
     berryDiv.style.fontWeight = "bold";
-    berryDiv.addEventListener('click',collectBerry);
-    screen = get("bush-wrapper");
-    screen.appendChild(berryDiv);
+    setOnClick(berryDiv,collectBerry);
 
 }
 function saveGame() {
@@ -173,6 +174,11 @@ function selectTab(tab){
                     activeScreen.classList.add('active');
                     document.title = "A Fruit Tree";
                     break;
+                case "war":
+                    activeScreen = get("war-screen");
+                    activeScreen.classList.add('active');
+                    document.title = "A War Campaign";
+                    break;
                 case "grove":
                 default:
                     activeScreen = get("grove-screen");
@@ -205,10 +211,11 @@ function newTab(tabName, tabArt) {
         newText.innerText = tabArt;
         newTab.appendChild(newText);
         newTab.className = "clickable tab";
-        newTab.addEventListener('click', () => {
+        tabs.appendChild(newTab);
+        setOnClick(newTab, () => {
             selectTab(tabName);
         });
-        tabs.appendChild(newTab);
+        
 }
 
 let sm = 0;
@@ -238,7 +245,7 @@ function getResource(name){
 function updateResourceDisplay(){
     notifyListeners();
 
-    for(resourceName of ['fruit','meat','wood','ore','harness','metal']){
+    for(resourceName of ['fruit','meat','wood','ore','harness','metal','torch']){
         let resCount = get(resourceName + "-count");
         if(resCount == null && resources[resourceName] > 0){
             resCount = newChild(get("resource-screen"),"p",resourceName + "-count","","resource");
@@ -264,6 +271,10 @@ function updateResourceDisplay(){
     {herbCount.innerText =  "mystic herbs  " + Math.floor(resources['mystic herbs'])};
 }
 
+function addTooltip(obj,text){
+    obj.classList.add("tooltip-container");
+    tooltip = newChild(obj,"span",null,text,"tooltip-text");
+}
 //This is called whenever we update the Resource Display to ensure that everything with a cost requirement checks to see if you meet the cost not
 function notifyListeners(){
 
@@ -278,17 +289,45 @@ function registerListener(obj){
     //return resourceListeners.length - 1;
 }
 function registerButtonListener(button,resources,resourceRequirements){
-    button.title = "";
+    /*button.title = "";
     for(i = 0; i < resources.length;i++){
         button.title += resources[i] + " " + resourceRequirements[i] + "\n";
+    }*/
+    hoverText = "";
+    for(i = 0; i < resources.length;i++){
+        hoverText += resources[i] + " " + resourceRequirements[i] + "\n";
     }
+    addTooltip(button,hoverText);
     buttonListener = new ButtonWrapper(button,resources,resourceRequirements);
     registerListener(buttonListener);
+
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            mutation.removedNodes.forEach((node) => {
+                if (node === button) {
+                    console.log("button deleted. Removing resource listener");
+                    unregisterListener(buttonListener);
+                    observer.disconnect();
+                }
+            });
+        });
+    });
+    observer.observe(button.parentNode,{ childList: true });
     return buttonListener;
 }
 
 function unregisterListener(listener){
+    if(listener.client){
+    if(listener.client.firstChild){
+        for (child of listener.client.children){
+            if(child.classList.contains('tooltip-text')){
+                child.remove();
+            }
+        }
+    }
+    }
     resourceListeners.delete(listener);
+    listener = null;
 }
 
 function firstMonEvent(){
@@ -297,12 +336,11 @@ function firstMonEvent(){
 
     groveText.innerText = "A fox, its body devoid of fat as starvation sets in,\nlimps into the clearing before collapsing.";
     if(get("initial-feed") == null) {
-    feedButton = document.createElement("button");
-    feedButton.innerText = "Feed";
-    feedButton.title = "fruit 10";
-    feedButton.id = "initial-feed";
+    let feedButton = newChild(groveScreen,"button","initial-feed","Feed");
+    //feedButton.title = "fruit 10";
+    addTooltip(feedButton,"fruit 10");
     
-    feedButton.addEventListener('click', () => {
+    setOnClick(feedButton, () => {
         feedButton.remove();
         groveText.innerText = "You carefully feed the fox some of your fruit. Soon, the\nfox has fallen into a peaceful slumber.";
         resources['fruit'] -= 10;
@@ -311,7 +349,7 @@ function firstMonEvent(){
         setTimeout(function(){
             groveText.innerText = "The fox is now awake. It regards you with a little\n suspicion, but eyes your hand for more food.";
             let nameButton = newChild(groveScreen,"button",null,"Name it","");
-            nameButton.addEventListener('click', () =>
+            setOnClick(nameButton, () =>
             {
                 const startingMon = new Mon();
                 startingMon.level = 1;
@@ -329,17 +367,16 @@ function firstMonEvent(){
             });
         },20000);
     })
-    groveScreen.appendChild(feedButton);
     }
 }
 function unlockExplore(){
     progress = 2;
     groveText = get('grove-text');
     groveText.innerText = "The forest surrounding this clearing is\nvast. Exploring it could prove useful.";
-    exploreButton = newChild(get("grove-screen"),"button","explore-button","Explore",null);
+    exploreButton = newChild(get("grove-screen"),"button","unlock-explore-button","Explore",null);
     exploreButton.style.top = "100px"
     exploreButton.style.position = "absolute"
-    exploreButton.addEventListener('click', function() {
+    setOnClick(exploreButton, function() {
         let exploreIcon = `
 |       |
 |Explore|
@@ -348,19 +385,21 @@ function unlockExplore(){
         newTab("explore",exploreIcon);
         exploreButton.remove();
         selectTab("explore");
-        registerButtonListener(get("explore-button"),["fruit"],[EXPLORE_COST]);
+        exploreListener = registerButtonListener(get("explore-button"),["fruit"],[EXPLORE_COST]);
         registerListener(new GenericListener(unlockBuild,["wood"],[10]));
     });
 }
 function resetExplore(){
     exploreButton = get("explore-button");
     exploreText = get("explore-text");
+    exploreImage = get("explore-image");
     exploreText.innerText = "The untamed forest lies before you.\nWho knows what you might find?";
     //registerButtonListener(exploreButton,["fruit"],[EXPLORE_COST]);
     exploreButton.classList.remove("hidden");
     exploreCooldown.val = 15;
     updateExploreButton();
     cooldown(exploreCooldown,updateExploreButton);
+    exploreImage.hidden = false;
 }
 function updateExploreButton(){
     exploreButton = get("explore-button");
@@ -369,83 +408,206 @@ function updateExploreButton(){
         exploreButton.innerText += " (" + exploreCooldown.val + "s)";
         exploreButton.disabled = true;
     } else {
-        updateResourceDisplay();
+        //updateResourceDisplay();
+        exploreListener = registerButtonListener(exploreButton,["fruit"],[EXPLORE_COST]);
     }
 }
 function explore(){
+    unregisterListener(exploreListener);
     resources['fruit'] -= EXPLORE_COST;
+    get("explore-image").hidden = true;
     updateResourceDisplay();
-    if(numExplores == 10){
-        eventTemple();
-        numExplores++;
-        return;
-    }
-    switch(Math.floor(Math.random()*18)){
-        case 0:
-        case 1:
-            if(mons.length < 3){
+    if(numExplores < 10) {
+        switch(Math.floor(Math.random()*18)){
+            case 0:
+            case 1:
+                if(mons.length < 3){
+                    event1();
+                } else {
+                    event4();
+                }
+                break;
+            case 2:
                 event1();
-            } else {
+                break;
+            case 3:
+                event2();
+                break;
+            case 4:
+            case 5:
+            case 6:
+                event3();
+                break;
+            case 7:
+            case 8:
+            case 9:
                 event4();
-            }
-            break;
-        case 2:
-            event1();
-            break;
-        case 3:
-            event2();
-            break;
-        case 4:
-        case 5:
-        case 6:
-            event3();
-            break;
-        case 7:
-        case 8:
-        case 9:
-            event4();
-            break;
-        case 10:
-            event5();
-            break;
-        case 11:
-            event6();
-            break;
-        case 12:
-        case 13:
-        case 14:
-            event7();
-            break;
-        case 15:
-            event8();
-            break;
-        case 16:
-            event9();
-            break;
-        case 17:
-            event10();
-            break;
-        default:
-            eventBoring();
-
+                break;
+            case 10:
+                event5();
+                break;
+            case 11:
+                event6();
+                break;
+            case 12:
+            case 13:
+            case 14:
+                event7();
+                break;
+            case 15:
+                event8();
+                break;
+            case 16:
+                event9();
+                break;
+            case 17:
+                event10();
+                break;
+            default:
+                eventBoring();
+        }
     }
-
-
-
-
+     else if(numExplores == 10){
+        eventTemple();
+    } else if (numExplores == 30){
+        eventContact();
+    } else {
+        switch(Math.floor(Math.random()*42)){
+            case 0:
+            case 1:
+                if(!foundJaguar) {
+                    event12();
+                }
+                break;
+            case 2:
+                if(mons.length < 10) {
+                    event1();
+                } else {
+                    event15();
+                }
+                
+                break;
+            case 3:
+                if(mons.length < 10) {
+                    event2();
+                } else {
+                    event15();
+                }
+                break;
+            case 4:
+            case 5:
+            case 6:
+                event3();
+                break;
+            case 7:
+            case 8:
+            case 9:
+                event4();
+                break;
+            case 10:
+                if(mons.length < 10) {
+                    event5();
+                } else {
+                    event15();
+                }
+                break;
+            case 11:
+                if(mons.length < 10) {
+                    event6();
+                } else {
+                    event15();
+                }
+                break;
+            case 12:
+            case 13:
+            case 14:
+                event7();
+                break;
+            case 15:
+            case 18:
+                event8();
+                break;
+            case 16:
+            case 19:
+            case 20:
+                event9();
+                break;
+            case 17:
+                event10();
+                break;
+            case 21:
+                if(mons.length < 10){
+                    event11();
+                } else {
+                    event7();
+                }
+                break;
+            case 22:
+                if(mons.length < 10){
+                    event13();
+                } else {
+                    event16();
+                }
+                break;
+            case 23:
+            case 24:
+            case 25:
+                event14();
+            break;
+            case 26:
+            case 27:
+            case 28:
+            case 29:
+                event15();
+                break;
+            case 30:
+            case 31:
+                event16();
+                break;
+            case 32:
+            case 33:
+                event17();
+                break;
+            case 34:
+                if(mons.length < 10) {
+                    event18();
+                } else {
+                    event17();
+                }
+                break;
+            case 35:
+            case 36:
+                event19();
+                break;
+            case 37:
+            case 38:
+            case 39:
+            case 40:
+                event20();
+                break;
+            case 41:
+                event21();
+                break;
+            default:
+                eventBoring();
+        }
+    }
+    
     numExplores++;
 
 }
 function event1(){ //tame squirrel
     let exploreText = get("explore-text");
-    exploreChoice("You stumble across a squirrel lying on the ground, a huge gash in its chest",
+    creatureType = (Math.random() < 0.5)?"squirrel":"chipmunk";
+    exploreChoice(`You stumble across a ${creatureType} lying on the ground, a huge gash in its chest.`,
         "Bind its wound",[],[],
         () => {
-            exploreText.innerText = convertString("With a strip of cloth made of plant fiber you bind the bleeding cut. You bring it back to your grove to oversee its recovery");
+            exploreText.innerText = convertString("With a strip of cloth made of plant fiber you bind the bleeding cut. You bring it back to your grove to oversee its recovery.");
             let newMon = new Mon();
-            newMon.species = "squirrel";
+            newMon.species = creatureType;
             newMon.level = 1;
-            newMon.nickname = "Squirrel";
+            newMon.nickname = creatureType;
+            newMon.nickname = newMon.nickname.charAt(0).toUpperCase() + newMon.nickname.slice(1);
             newMon.tame = 20;
             mons.push(newMon);
             updateMonList();
@@ -454,7 +616,7 @@ function event1(){ //tame squirrel
         },
         "Leave it be",[],[],
         () => {
-            exploreText.innerText = convertString("You leave the squirrel lying there in its blood. You continue, but find nothing before returning to the grove");
+            exploreText.innerText = convertString("You leave the squirrel lying there in its blood. You continue, but find nothing before returning to the grove.");
             alignment -= 5;
             setTimeout(resetExplore,20000);
         }
@@ -467,7 +629,7 @@ function event2(){ //tame wolf
         () => {
             resources['meat'] -= 10;
             updateResourceDisplay();
-            exploreText.innerText = convertString("You toss the meat towards it. Its anger vanishes the moment it smells food. After devouring what you gave it, it follows close at your heels");
+            exploreText.innerText = convertString("You toss the meat towards it. Its anger vanishes the moment it smells food. After devouring what you gave it, it follows close at your heels.");
             let newMon = new Mon();
             newMon.species = "wolf";
             newMon.level = 1;
@@ -481,7 +643,7 @@ function event2(){ //tame wolf
         },
         "Finish it off",[],[],
         () => {
-            exploreText.innerText = convertString("The fight is quick and bloody. You leave with bite marks on your arm and a new pelt");
+            exploreText.innerText = convertString("The fight is quick and bloody. You leave with bite marks on your arm and a new pelt.");
             resources['meat'] += 7;
             updateResourceDisplay();
             alignment -= 6;
@@ -495,8 +657,8 @@ function event3(){ //wood
     if(!exploreButton.classList.contains('hidden')){
         exploreButton.classList.add('hidden');
     }
-    exploreText.innerText = convertString(`Sticks and dead brush cover the forest floor. You collect as much as you can in your arms and bring it back to the grove. ${mons[0].nickname} walks over and greets you excitedly when you return`);
-    resources['wood'] += 15;
+    exploreText.innerText = convertString(`Sticks and dead brush cover the forest floor. You collect as much as you can in your arms and bring it back to the grove. ${mons[0].nickname} walks over and greets you excitedly when you return.`);
+    resources['wood'] += Math.floor(Math.random()*10)+10;
     updateResourceDisplay();
     setTimeout(resetExplore,15000);
 }
@@ -506,19 +668,19 @@ function event4(){ //blackberries
     if(!exploreButton.classList.contains('hidden')){
         exploreButton.classList.add('hidden');
     }
-    exploreText.innerText = convertString(`A grove of blackberry bushes filled with ripe berries greets you. You gather what you can carry. Back at camp ${mons[0].nickname} puts on puppy dog eyes to beg for one`);
-    resources['fruit'] += 25;
+    exploreText.innerText = convertString(`A grove of blackberry bushes filled with ripe berries greets you. You gather what you can carry. Back at camp ${mons[0].nickname} puts on puppy dog eyes to beg for one.`);
+    resources['fruit'] += Math.floor(Math.random()*15)+15;
     updateResourceDisplay();
     setTimeout(resetExplore,15000);
 }
-function event5(){ //fawn
+function event5(){ //tame fawn
     let exploreText = get("explore-text");
     exploreChoice("A shivering fawn curls up next to its dead mother",
         "Coax the fawn with food",["fruit"],[10],
         () => {
             resources['fruit'] -= 10;
             updateResourceDisplay();
-            exploreText.innerText = convertString("With a gentle hand you place a berry on the ground. The faun walks over and hungrily eats it. You lead the faun back to the safety of the grove");
+            exploreText.innerText = convertString("With a gentle hand you place a berry on the ground. The faun walks over and hungrily eats it. You lead the faun back to the safety of the grove.");
             let newMon = new Mon();
             newMon.species = "deer";
             newMon.level = 1;
@@ -539,12 +701,12 @@ function event5(){ //fawn
         }
     );
 }
-function event6(){ //raven
+function event6(){ //tame raven
     let exploreText = get("explore-text");
     exploreChoice("A raven stare at you intently from a nearby tree branch",
         "Hold out your arm",[],[],
         () => {
-            exploreText.innerText = convertString("As you proffer your arm, the startled raven takes flight, soon disappearing out of sight");
+            exploreText.innerText = convertString("As you proffer your arm, the startled raven takes flight, soon disappearing out of sight.");
             alignment += 1;
             setTimeout(resetExplore,15000);
         },
@@ -556,7 +718,7 @@ function event6(){ //raven
         },
         "Swiftly grab it",[],[],
         () => {
-            exploreText.innerText = convertString("As you swipe your hand the bird quickly flies out of reach. Soon it is nowhere to be seen");
+            exploreText.innerText = convertString("As you swipe your hand the bird quickly flies out of reach. Soon it is nowhere to be seen.");
             alignment -= 1;
             setTimeout(resetExplore,15000);
         }
@@ -564,10 +726,10 @@ function event6(){ //raven
 }
 function event6a(){
     let exploreText = get("explore-text");
-    exploreChoice("The raven cocks its head before cautiously eating the berry. It seems to relax a little",
+    exploreChoice("The raven cocks its head before cautiously eating the berry. It seems to relax a little.",
         "Hold out your arm",[],[],
         () => {
-            exploreText.innerText = convertString("As you extend your arm, the bird considers it for a moment before hopping on");
+            exploreText.innerText = convertString("As you extend your arm, the bird considers it for a moment before hopping on.");
             let newMon = new Mon();
             newMon.species = "raven";
             newMon.level = 1;
@@ -579,7 +741,7 @@ function event6a(){
         },
         "Grab the bird",[],[],
         () => {
-            exploreText.innerText = convertString("As you swipe your hand, the raven quickly flies out of reach. It seems to give you an almost critical glare before flying away");
+            exploreText.innerText = convertString("As you swipe your hand, the raven quickly flies out of reach. It seems to give you an almost critical glare before flying away.");
             alignment -= 3;
             setTimeout(resetExplore,15000);
         }
@@ -587,25 +749,25 @@ function event6a(){
 }
 function event7(){ //creek
     let exploreText = get("explore-text");
-    exploreChoice("You find a clear creek running through the forest",
+    exploreChoice("You find a clear creek running through the forest.",
         "Search the water",[],[],
         () => {
-            exploreText.innerText = convertString("The crystal clear water is home to schools of fish. You manage to catch a few to bring back to the grove");
-            resources['meat'] += 10;
+            exploreText.innerText = convertString("The crystal clear water is home to schools of fish. You manage to catch a few to bring back to the grove.");
+            resources['meat'] += Math.floor(Math.random()*15)+5;
             updateResourceDisplay();
             setTimeout(resetExplore,15000);
         },
         "Follow it downstream",[],[],
         () => {
-            exploreText.innerText = convertString("Downstream, fruitbearing trees flourish near the cool water. You collect some fruit before heading back");
-            resources['fruit'] += 13;
+            exploreText.innerText = convertString("Downstream, fruitbearing trees flourish near the cool water. You collect some fruit before heading back.");
+            resources['fruit'] += Math.floor(Math.random()*10)+8;
             updateResourceDisplay();
             setTimeout(resetExplore,15000);
         }
     );
 }
 function event8(){ //rare herbs
-    exploreButton = get("explore-button");
+    let exploreButton = get("explore-button");
     if(!exploreButton.classList.contains('hidden')){
         exploreButton.classList.add('hidden');
     }
@@ -618,19 +780,19 @@ function event8(){ //rare herbs
 function event9(){ //fairy circle
     let exploreText = get("explore-text");
     exploreChoice(
-        "You find a perfect circle formed out of white mushrooms",
+        "You find a perfect circle formed out of white mushrooms.",
         "Offer fruit",["fruit"],[15],
         () => {
             resources['fruit'] -= 15;
             updateResourceDisplay();
             if(Math.random() < 0.5){
-                exploreText.innerText = convertString("As you lay the fruit inside the circle, it transforms into a thousand dandelion seeds that blow away. In its place are a few flowers that glow with a mystical light");
+                exploreText.innerText = convertString("As you lay the fruit inside the circle, it transforms into a thousand dandelion seeds that blow away. In its place are a few flowers that glow with a mystical light.");
                 resources['mystic herbs'] += 3;
                 updateResourceDisplay();
                 setTimeout(resetExplore,25000);
             } else {
                 //The fey are fickle
-                exploreText.innerText = convertString("As you lay the fruit inside the circle, it transforms into a thousand dandelion seeds that blow away. You hear laughter coming from all around");
+                exploreText.innerText = convertString("As you lay the fruit inside the circle, it transforms into a thousand dandelion seeds that blow away. You hear laughter coming from all around.");
                 setTimeout(resetExplore,20000);
             }
         },
@@ -638,31 +800,393 @@ function event9(){ //fairy circle
         () => {
             resources['meat'] -= 15;
             updateResourceDisplay();
-            exploreText.innerText = convertString("The sky suddenly grows red as you set the meat down. You can hear a deep laughter as the meat seems to melt away. " + (alignment > -15)?"You quickly run from the circle, and the sky returns to normal":"You revel in the crimson light until the last drop has faded");
+            exploreText.innerText = convertString("The sky suddenly grows red as you set the meat down. You can hear a deep laughter as the meat seems to melt away. " + ((alignment > -15)?"You quickly run from the circle, and the sky returns to normal.":"You revel in the crimson light until the last drop has faded."));
             alignment -= 5;
             setTimeout(resetExplore,25000);
         },
         "Leave the Circle",[],[],
         () => {
-            exploreText.innerText = convertString("You decide that some things are better left alone");
+            exploreText.innerText = convertString("You decide that some things are better left alone.");
             setTimeout(resetExplore,15000);
         }
     );
 }
 function event10(){ //saved by mons[0]
-    exploreText = get("explore-text");
+    let exploreText = get("explore-text");
     exploreButton = get("explore-button");
     if(!exploreButton.classList.contains('hidden')){
         exploreButton.classList.add('hidden');
     }
-    exploreText.innerText = convertString("You come face to face with a growling wolf. It howls and more of its kind respond in the distance. Then, it charges");
+    exploreText.innerText = convertString("You come face to face with a growling wolf. It howls and more of its kind respond in the distance. Then it charges.");
     exploreButton1 = newChild(get('explore-screen'),"button","option1","Run");
-    exploreButton1.addEventListener('click',() =>{
+    setOnClick(exploreButton1,() =>{
         exploreButton1.remove();
-        exploreText.innerText = convertString(`You turn and start running, but it is much faster. As it leaps at you, jaws wide, a dark object collides with it from the side. You turn to see ${mons[0].nickname} wrestling with the wolf on the ground. As they both get to their feet, fur bloodied, ${mons[0].nickname} bares their teeth and growls. The wolf considers for a moment before leaving`);
+        exploreText.innerText = convertString(`You turn and start running, but it is much faster. As it leaps at you, jaws wide, a dark object collides with it from the side. You turn to see ${mons[0].nickname} wrestling with the wolf on the ground. As they both get to their feet, fur bloodied, ${mons[0].nickname} bares their teeth and growls. The wolf considers for a moment before leaving.`);
         setTimeout(resetExplore,20000);
     });
 }
+function event11(){ //tame eagle
+    if(alignment < -15) {
+        exploreChoice(
+            "A pathetically weak eagle lies on the ground, leg broken. Nature is cruel to cripples, but this could be an opportunity...",
+            "Make it serve you",["wood"],[10],
+            () => {
+                resources["wood"] -= 10;
+                updateResourceDisplay();
+                get("explore-text").innerText = convertString("You fashion a splint out of wood to bind its leg. It will remain loyaly in your service.");
+                alignment -= 2;
+                eagle = new Mon();
+                eagle.species = "eagle";
+                eagle.nickname = "eagle";
+                eagle.level = 1;
+                eagle.carnivore = true;
+                eagle.tame = 30;
+                mons.push(eagle);
+                updateMonList();
+                setTimeout(resetExplore,15000);
+            },
+            "A merciful death",[],[],
+            () => {
+                get("explore-text").innerText = convertString("A noble creature such as an eagle should not be bound. Its death is quick.");
+                alignment += 2;
+                setTimeout(resetExplore,15000);
+            }
+        );
+    } else {
+        exploreChoice(
+            "An eagle lies crippled on the ground. Its right leg is bent way too far out of place.",
+            "Make a splint",["wood"],[10],
+            () => {
+                resources["wood"] -= 10;
+                updateResourceDisplay();
+                get("explore-text").innerText = convertString("You fashion a splint out of wood to bind its leg. It winces in pain, yet seems to understand your desire to help. You carry it back to the grove.");
+                alignment += 3;
+                eagle = new Mon();
+                eagle.species = "eagle";
+                eagle.nickname = "eagle";
+                eagle.level = 1;
+                eagle.carnivore = true;
+                eagle.tame = 30;
+                mons.push(eagle);
+                setTimeout(resetExplore,15000);
+            },
+            "Nature holds no mercy",[],[],
+            () => {
+                get("explore-text").innerText = convertString("Cripples do not survive in nature. This eagle is no exception.");
+                resources["meat"] += 10;
+                updateResourceDisplay();
+                alignment -= 2;
+            }
+        );
+    }
+}
+let foundJaguar = false;
+function event12() { //tame jaguar
+    exploreChoice("For a while, as you've explored the forest you've had the uncanny feeling that you were being watched. Today you spot your stalker. Lying lazily on a treebranch in front of you is a beautiful jaguar. It stares at you intently before hopping down to the ground in front of you.",
+        "Show no fear", [], [],
+        () => {
+            get("explore-text").innerText = convertString("As the jaguar displays its calm confidence, you stand up tall to make sure you show no weakness. The jaguar eyes you for a bit, circling you before seeming to nod. It then vanishes into the forest.");
+            setTimeout(resetExplore,20000);
+        },
+        "Bow submissively",[],[],
+        event12a
+    );
+}
+function event12a() {
+    let exploreText = get('explore-text');
+    exploreChoice(
+        "You crouch down and bow your head submissively. The jaguar slowly circles around you, eyes never leaving you. When it arrives in front of you again, it lies down on the ground.",
+        "Toss it meat",['meat'],['20'],
+        () => {
+            resources["meat"] -= 20;
+            updateResourceDisplay();
+            exploreText.innerText = convertString("You toss the meat to the jaguar who accepts it and begins to eat. After it is finished, it gets up and leads you back to your own camp. There is climbs on top of your stockpile of resources and lays down, watching over the grove like a king over their kingdom.");
+            foundJaguar = true;
+            jaguar = new Mon();
+            jaguar.nickname = "Self Appointed Ruler";
+            jaguar.species = "jaguar";
+            jaguar.tame = 5;
+            jaguar.level = 3;
+            jaguar.carnivore = true;
+            mons.push(jaguar);
+            updateMonList();
+            setTimeout(resetExplore,20000);
+        },
+        "Carefully back away",[],[],
+        () => {
+            exploreText.innerText = convertString("The jaguar watches you as you back away, but does not pursue. You make it safely back to the grove.");
+            setTimeout(resetExplore,15000);
+        }
+
+    );
+}
+function event13() { //Tame Bun
+    let exploreText = get('explore-text');
+    if(alignment >= 25){
+        let exploreText = get("explore-text");
+        exploreButton = get("explore-button");
+        if(!exploreButton.classList.contains('hidden')){
+            exploreButton.classList.add('hidden');
+        }
+        get('explore-button').
+        exploreText.innerText = convertString("As you search through the forest you stumble across a spectacular sight. There, sitting in front of you, is an adorable fluffy bunny. There is no decision to be made, it is clear what you must do.");
+        choiceButton = newChild(get('explore-screen'),"button",null,"FEED THE BUN");
+        bunImage = 
+`             ,\\
+             \\\\\\,_
+              \\\` ,\\
+         __,.-" =__)
+       ."        )
+    ,_/   ,    \\/\\_
+    \\_|    )_-\\ \\_-\`
+       \`-----\` \`--\`
+`;
+        bunDiv = newChild(get('explore-screen'),"pre","bun-image",bunImage);
+        registerButtonListener(choiceButton,["fruit"],[15]);
+        setOnClick(choiceButton,() => {
+            resources['fruit'] -= 15;
+            updateResourceDisplay();
+            choiceButton.remove();
+            bunDiv.remove();
+            exploreText.innerText = convertString("You feed the bunny some fruits and plants and it happily munches away on them. As it munches you pet the bun as much as possible. When it finishes you bring it back to the grove to feed it more.");
+            bun = new Mon();
+            bun.species = "bun";
+            bun.nickname = "Fluff Bundle";
+            bun.level = 1;
+            bun.tame = 40;
+            mons.push(bun);
+            updateMonList();
+            setTimeout(resetExplore,20000);
+        });
+    } else {
+        exploreChoice(
+            "Ahead of you, a rabbit searches through the grass for food. Its ears perk up as it hears you and it stares at you, waiting to see what you do.",
+            "Hold out food",["fruit"],[15],
+            () => {
+                resources['fruit'] -= 15;
+                updateResourceDisplay();
+                exploreText.innerText = convertString("You hold out some fruit and plants in your hand. The rabbit approaches cautiously before tasting the offering. Soon it is comfortably munching away at the food in your hand as you bring it back to the grove.");
+                alignment += 3;
+                bun = new Mon();
+                bun.species = "bun";
+                bun.nickname = "Fluff Bundle";
+                bun.level = 1;
+                bun.tame = 30;
+                mons.push(bun);
+                updateMonList();
+                setTimeout(resetExplore,20000);
+            },
+            "Grab the creature",[],[],
+            () => {
+                exploreText.innerText = convertString("You reach out to snatch the rabbit and it quickly hops away into the underbrush.");
+                alignment -= 3;
+                setTimeout(resetExplore,15000);
+            }
+        );
+
+    }
+}
+function event14(){ //Monkeys
+    exploreChoice(
+        "As you stoll through the forest, you hear the chattering of monkeys in the treetops.",
+        "Follow the noises",[],[],
+        () => {
+            get('explore-text').innerText = convertString("You chase the monkeys deeper and deeper into the forest, but eventually you lose them. When you return to camp you notice that it has been ransacked.");
+            resources['food'] -= Math.min(Math.floor(resources['food']*0.5),50);
+            resources['wood'] -= Math.min(Math.floor(resources['wood']*0.3),20);
+            resources['ore'] -= Math.min(Math.floor(resources['ore']*0.2),10);
+            alignment++;
+            updateResourceDisplay();
+            setTimeout(resetExplore,20000);
+
+        },
+        "Leave them be",[],[],
+        () => {
+            get('explore-text').innerText = convertString("You ignore the monkeys and return to camp. Back at the grove you find several monkeys searching through your stockpile. You shoo them away.");
+            setTimeout(resetExplore,20000);
+        }
+    )
+}
+function event15() { //cave
+    let exploreText = get('explore-text');
+    exploreChoice(
+        "You find a dark cave in the side of a bluff. Cool air blows out from the crevice.",
+        "Enter the cave",["torch"],[1],
+        () => {
+            resources['torch']--;
+            rnd = Math.random();
+            if(rnd < 0.2){
+                exploreText.innerText = convertString("You hold out your torch before you and come face to face with a bear. It lets out a roar as you sprint away, dropping some food you had brought with you.");
+                resources['fruit'] -= 15;
+                if (resources['fruit'] < 0) resources['fruit'] = 0;
+            } else if (rnd < 0.6){
+                exploreText.innerText = convertString("You descend into the darkness, the fire of your torch the only source of light. This appears to be a creature's den with a half eaten corpse in the middle. You take what you can before leaving.");
+                resources['meat'] += Math.floor(Math.random()*8)+10;
+            } else if (rnd < 0.9) {
+                exploreText.innerText = convertString("You descend into the darkness, the fire of your torch the only source of light. This appears to be a creature's den with a stockpile of fruit in the corner. You gather what you can before leaving.");
+                resources['meat'] += Math.floor(Math.random()*8)+10;
+            } else {
+                exploreText.innerText = convertString("As you find your way through the cave by the light of your torch, you notice a glowing up ahead. The wall is lined with rare mushrooms. These can help fuel your magical abilities.");
+                resources['mystic herbs'] += 3;
+            }
+            updateResourceDisplay();
+            setTimeout(resetExplore,20000);
+        },
+        "Search around",[],[],
+        () => {
+            exploreText.innerText = convertString("The area surrounding the cave has plenty of wood and thatch to collect. You bring some back.");
+            resources['wood'] += Math.floor(Math.random()*10)+8;
+            updateResourceDisplay();
+            setTimeout(resetExplore,15000);
+        }
+    )
+}
+function event16() { //walk with mons[0]
+    exploreButton = get("explore-button");
+        if(!exploreButton.classList.contains('hidden')){
+            exploreButton.classList.add('hidden');
+        }
+    get('explore-text').innerText = convertString(`You decide to bring ${mons[0].nickname} along with you this time. ${mons[0].nickname} happily joins you, running along and playing in piles of leaves. You two snack on some berries you find and bring back some odds and ends, but mostly you enjoy spending the time together.`);
+    resources['fruit'] += Math.floor(Math.random()*5)+1;
+    resources['mystic herbs'] += Math.floor(Math.random()*3) / 2;
+    updateResourceDisplay();
+    mons[0].tame += 30;
+    if (mons[0].tame > 100) mons[0].tame = 100;
+    updateMonCard("tameness");
+    setTimeout(resetExplore,20000);
+}
+function event17() { //fish with mons[0]
+    exploreButton = get("explore-button");
+        if(!exploreButton.classList.contains('hidden')){
+            exploreButton.classList.add('hidden');
+        }
+    get('explore-text').innerText = convertString(`The ground is damp from a recent rain. You and ${mons[0].nickname} head off to explore together. You come to a creek overflowing with water, ${mons[0].nickname} jumps in excitedly and starts splashing around. They catch a few fish and drop them at your feet, wagging their tail with excitement.`);
+    resources['meat'] += Math.floor(Math.random()*10) + 5;
+    updateResourceDisplay();
+    mons[0].tame += 20;
+    if (mons[0].tame > 100) mons[0].tame = 100;
+    updateMonCard("tameness");
+    setTimeout(resetExplore,20000);
+}
+function event18() { //tame badger
+    let exploreText = get('explore-text');
+    exploreChoice(
+        "As you venture into the forest, you come across a badger surrounded by a pack of wolves. It hisses at the wolves who, despite their advantage in size and number, seem hesitant about fighting. Still, the wolves are warily moving in.",
+        "Back away slowly",[],[],
+        () => {
+            exploreText.innerText = convertString("You slowly creep backwards and none of the predators notice you. When you are a little ways away, you turn and head back to the grove. Behind you, you hear the sounds of a viscious fight.");
+            alignment -= 1;
+            setTimeout(resetExplore,20000);
+        },
+        "Scare the wolves",["torch"],[1],
+        () =>{
+            resources['torch']--;
+            
+            exploreText.innerText = convertString("You leap forward into the circle of wolves, waving your burning torch. The wolves growl, but shy away from the dancing flame. After a few tense moments, the wolves turn and leave. As soon as they do, the badger bolts away into the forest. The next morning, however, the badger shows up at the grove with a dead mouse as a present.");
+            resources['meat']++;
+            badger = new Mon();
+            badger.level = 1;
+            badger.tame = 10;
+            badger.nickname = "Badger";
+            badger.species = "badger";
+            badger.carnivore = true;
+            mons.push(badger);
+            updateMonList();
+            alignment += 3;
+            updateResourceDisplay();
+            setTimeout(resetExplore,20000);
+        }
+    );
+}
+function event19(){ //abandoned mine
+    let exploreText = get("explore-text");
+    exploreChoice(
+        "Near the outskirts of the forest, you find the remnants of a mine. Signs of human activity in the forest worry you.",
+        "Enter the mine",[torch],[1],
+        () => {
+            exploreText.innerText = convertString("Luckily the mine has been long abandoned. By the light of your fire you find a little ore that was never taken back.");
+            resources['ore'] += Math.floor(Math.random()*7)+1;
+            updateResourceDisplay();
+            setTimeout(resetExplore,15000);
+        },
+        "Search the area",[],[],
+        () => {
+            exploreText.innerText = convertString("You search around the mine and luckily don't find any signs of recent human activity. This mine appears to have been abandonded long ago.");
+            setTimeout(resetExplore,15000);
+        }
+    )
+}
+function event20() { //misc temple
+    exploreText = get("explore-text");
+    exploreChoice(
+        "Deep in the forest you find the dark ruins of a temple. It resembles the temple that housed the Heart of the Forest, but smaller. It does not have the same power radiating from it.",
+        "Explore",['torch'],[1],
+        () =>
+        {
+            rnd = Math.floor(Math.random()*5);
+            switch (rnd){
+                case 0:
+                    exploreText.innerText = convertString("Inside the temple, you find a wall covered in images. It clearly depicts the Heart of the Forest, but it also depicts another crystal that you cannot identify. When both crystals are brought together... The wall is too worn to make out the rest.");
+                    break;
+                case 1:
+                    exploreText.innerText = convertString("Inside the temple you find a prophecy scralled on a withered slab. It reads: \"In the time where the o$??cl??f war comes, One, chosen of the forest, shall be raised up by their &??ri? to unite the world and ?(s&a??\"");
+                    break;
+                case 2:
+                    exploreText.innerText = convertString("The temple is dark, lit only by your torches flame. An intricate carving in the wall has been scratched beyond recognition. Grafitti, carved over top reads: \"I see, One does not have power to ascend alone. A sacrifice must be made. I will do what I must.\"");
+                    break;
+                case 3:
+                    exploreText.innerText = convertString("This temple contains a grand mural depicting a crystal in the center. Etched below it you can just make out the words: \"The bond between One and their l?n?m contains great power.\"");
+                    break;
+                case 4:
+                    exploreText.innerText = convertString("The wall of the temple depicts an intricate image. It appears to be some sort of map, with the entire outer edge rough unhewn rock. In the center, two crystals are surrounded by perfectly smooth stone with plants and animals etched in it.");
+                    break;
+                }
+                resources['mystic herbs']++;
+                updateResourceDisplay();
+                setTimeout(resetExplore,20000);
+        },
+        "Leave",[],[],
+        () => {
+            exploreText.innerText = convertString("You leave the temple. Perhaps the secrets hidden inside are better kept as secrets.");
+            setTimeout(resetExplore,15000);
+        },
+        "Destroy it",['mystic herbs'],[2],
+        () => {
+            exploreText.innerText = convertString("You crush the magical herbs inside your palm and feel the power course through you. You feel a connection to the very stones making up the temple. With considerable effort, you PUSH and the entire temple crumbles to dust.");
+            alignment -= 4;
+            setTimeout(resetExplore,20000);
+        }
+    )
+}
+function event21(){ //tame bear cub
+    exploreText = get('explore-text');
+    exploreChoice(
+        "As you journey through the forest, you find a bear cub next to its mother. The mother bear is trapped under a large boulder. The cub frantically tries to help its mother move, but to no avail.",
+        "Free the mother",["wood"],[5],
+        () => {
+            exploreText.innerText = convertString("You put together a makeshift wooden level and use it to lift the boulder slightly. Soon the bear is free. The bear glares at you warily and stands between you and its cub. Carefully, it guides its cub away from you and into the forest.");
+            alignment += 5;
+            setTimeout(resetExplore,20000);
+        },
+        "Kill the mother",[],[],
+        () => {
+            exploreText.innerText = convertString("Even though the bear is trapped, it does not go down easily. It fight to the very end. Once it is dead, the cub has no choice but to go with you for protection.");
+            resources["meat"] += 20;
+            updateResourceDisplay();
+
+            cub = new Mon();
+            cub.level = 1;
+            cub.nickname = "Bear Cub";
+            cub.species = "bear";
+            cub.tame = 0;
+            mons.push(cub);
+            updateMonList();
+            alignment -= 5;
+            setTimeout(resetExplore,20000);
+        }
+    )
+}
+
 function eventBoring(){
     exploreText = get("explore-text");
     exploreButton = get("explore-button");
@@ -675,6 +1199,26 @@ function eventBoring(){
 let templeHerbs = false;
 function eventTemple(){
     let herbs = false;
+    templeImage =
+`MMMW###Mw         |___,_|  U  |__._|    M@#MN#N
+M ;\`\`\`\`~          |_|/__|     |_V_||     \`\`\`MwMN
+                 /|___|__\\____|___,_\\,,       \`\`
+              wwww~,|___|_v_|___.__~~~;
+WWML          r/_#|___|__'|___|__,/___\\\`
+MW@RWL        /_|_@_|w__z:__#|___;__|__\\
+    MMHK ____/|___|@\`_|___|___|___|_#_|_;,,__
+       #@___|___,_;_;-k_|___|\\/_|___|__,:##_|\\
+       |_~~___|_~_|_/#._ _Y_ _|___|__p~\\__|__wl
+       ||_;_|_{_\`~~_|,,j;___|___;___|___n ;,|_w
+       |__|--{|___|\`_ Y//%@@#@@@|_|___|  }____w
+       ||_\`_|_Y_;___|_//%W@@@%@@|___Y_; /___|_~
+       ww~|__wMw__|___|#@M@@@@%@|_|___|W__|__wW
+       ww__wwWWWw,__|,|@@@@W@@@@|___|_wWw__w|wT
+    w  |wwWwWWMWMww  vmwWW@@@W@#| | wWmMWmWMmwm  wMw
+    MMwmWMWMWMWMMWMmwmMWM@@NM@@MNmwmWMWMMMWMwwmWMmmwm
+  mmwwMWW@@@##MN@@MN#@@@MNM@@#NMNMNM@NMMN@#M$@N@#NMMMNNM
+`
+    newChild(get("explore-screen"),"pre","temple-image",templeImage);
     exploreChoice(
         `Deep in the woods you find what appears to be the remains of an ancient temple. Stone walls are overgrown with vines and in many places the ceiling has collapsed. As you approach the entrance, ${mons[0].nickname} emerges from the forest to join you. You can feel a... power pulsating inside. It beckons to you two.`,
         "This is surely sacred ground",[],[],
@@ -684,6 +1228,8 @@ function eventTemple(){
     );
 }
 function temple1a(){
+    templeImage = get("temple-image");
+    if(templeImage) templeImage.remove();
     exploreChoice(
         "You enter the main chamber. The cracked stone floor is covered in vines. To the north, golden sunlight streams through a doorway. In the center of the room, stairs lead downwards into darkness. You can feel the thrum of power from down below",
         "Enter the Side Room",[],[],
@@ -701,7 +1247,7 @@ function temple2a(){
         exploreText.innerText = convertString(`You enter an ancient courtyard surrounded by forest. A break in the trees allows sunlight to bathe the area in its golden light. ${mons[0].nickname} frolicks in the vibrant grass. Plants in the courtyard glow with a mystical energy.`)
         button1 = newChild(exploreScreen,"button","button-1","Gather the Plants");
         
-        button1.addEventListener('click',() =>{
+        setOnClick(button1,() =>{
             exploreText.innerText = convertString("In reverence of this sacred area, you carefully gather some of the herbs. They seem imbued with the same energy you feel coming from the temple. They will surely prove useful.");
             alignment += 3;
             button1.remove();
@@ -713,7 +1259,7 @@ function temple2a(){
         exploreText.innerText = convertString("You enter an ancient courtyard surrounded by forest. A break in the trees allows sunlight to bathe the area in its golden light. Plants of all varieties flourish here, though you dare not take more than you already have.")
     }
     button2 = newChild(exploreScreen,"button","button-2","Return Inside");
-    button2.addEventListener('click',() =>
+    setOnClick(button2,() =>
     {
         if(button1 != null) button1.remove();
         button2.remove();
@@ -735,10 +1281,10 @@ function temple3a(){
         button1.style.fontWeight = "bold"
         button1.classList.add('color-shift');
     document.title = '❬ ○ ❭'
-    button1.addEventListener('click',() =>{
+    setOnClick(button1,() =>{
         button1.remove();
         alignment += 5;
-        exploreText.innerText = convertString(`The power courses through your body, streams of emerald light twist around you and ${mons[0].nickname}.`);
+        exploreText.innerText = convertString(`The power courses through your body, streams of emerald light twisting around you and ${mons[0].nickname}.`);
         document.body.classList.add('shake-window');
     
         setTimeout(function() {
@@ -748,7 +1294,7 @@ function temple3a(){
         setTimeout(function() {
             exploreText.innerText = convertString(`You regain your senses. Everything is quiet and the crystal floats just in front of you still. You feel a new reservoir of power within you and as you turn to look at ${mons[0].nickname}, they appear to be glowing with the same power you feel inside. This crystal is sacred, the Heart of the Forest. You must get it back to the grove for safety.`);
             button1 = newChild(exploreScreen,"button","button-1","Bring it back");
-            button1.addEventListener('click',() =>
+            setOnClick(button1,() =>
             {
                 button1.remove();
                 exploreText.innerText = convertString(`With great reverence, you take hold of the crystal again. It resonates with the power you feel inside, but does not react like last time. ${mons[0].nickname} bows their head towards the crystal. Both of you return to the grove, crystal in hand. As you return to the sunlight, you notice ${mons[0].nickname}'s pelt now has streaks of vibrant, almost glowing, green.`);
@@ -760,6 +1306,8 @@ function temple3a(){
     });
 }
 function temple1b(){
+    templeImage = get("temple-image");
+    if(templeImage) templeImage.remove();
     exploreChoice(
         "You enter the main chamber. The cracked stone floor is covered in vines. To the north, golden sunlight streams through a doorway. In the center of the room, stairs lead downwards into darkness. You can feel the thrum of power from down below",
         "Enter the Side Room",[],[],
@@ -777,7 +1325,7 @@ function temple2b(){
         exploreText.innerText = convertString(`You enter an ancient courtyard surrounded by forest. A break in the trees allows sunlight to bathe the area in light. Plants in the courtyard glow with a powerful energy.`)
         button1 = newChild(exploreScreen,"button","button-1","Gather the Plants");
         
-        button1.addEventListener('click',() =>{
+        setOnClick(button1,() =>{
             exploreText.innerText = convertString("You must have this power. You collect every plant that you can a hunger for power building inside you.");
             alignment -= 3;
             button1.remove();
@@ -789,7 +1337,7 @@ function temple2b(){
         exploreText.innerText = convertString("You enter an ancient courtyard surrounded by forest. A break in the trees allows sunlight to bathe the area in light. The ground is ravished of plant life. Nothing of value remains here.")
     }
     button2 = newChild(exploreScreen,"button","button-2","Return Inside");
-    button2.addEventListener('click',() =>
+    setOnClick(button2,() =>
     {
         if(button1 != null) button1.remove();
         button2.remove();
@@ -801,7 +1349,8 @@ function temple3b() {
     exploreScreen = get("explore-screen");
     document.title = '❬ ○ ❭'
     exploreText.innerText = convertString(`You walk down the stairs, the invisible power entincing you more with every step. Finally the darkness breaks as you see an emerald light ahead. The stairs end in a small chamber. The power is strong here. Floating in the center is a glowing green crystal, the source of this power. The power seems to call to you. You need this power.`);
-    button1 = newChild(exploreScreen,"pre","button-1",`  /\\    
+    button1 = newChild(exploreScreen,"pre","button-1",
+`        /\\    
         /  \\   
        / /\\ \\ 
        \\ \\/ / 
@@ -810,7 +1359,7 @@ function temple3b() {
                button1.style.color = "#10E030";
                button1.style.fontWeight = "bold"
                button1.classList.add('color-shift');
-    button1.addEventListener('click',() =>{
+               setOnClick(button1,() =>{
         button1.remove();
         alignment -= 3;
         exploreText.innerText = convertString(`The power courses through your body, streams of emerald light twisting around you.`);
@@ -823,7 +1372,7 @@ function temple3b() {
         setTimeout(function() {
             exploreText.innerText = convertString(`You regain your senses. Everything is quiet and the crystal is gripped tightly in your hand. You feel a new reservoir of power within you. This crystal is powerful and must be guarded fiercly. You must get it back to the grove.`);
             button1 = newChild(exploreScreen,"button","button-1","Bring it back");
-            button1.addEventListener('click',() =>
+            setOnClick(button1,() =>
             {
                 button1.remove();
                 exploreText.innerText = convertString(`You return to the grove, crystal in hand. As you return to the sunlight, you notice ${mons[0].nickname}'s pelt now has streaks of vibrant, almost glowing, green. It follows close at your heels, head bowed.`);
@@ -838,6 +1387,23 @@ function unlockDruid(){
     perks.add('druid');
     mons[0].element = "astral";
     updateMonCard();
+}
+function eventContact() {
+    exploreText = get('explore-text');
+    exploreText.innerText = convertString("As you enjoy a walk in the woods you hear an unnatural sounds. Talking. Humans, they\'re here. You see them up ahead investigating some ancient ruins. They are searching for the crystal, they must be. You hurry back to the grove. The grove is not safe anymore. It is time for war.");
+    warButton = newChild(get('explore-screen'),"button",null,"To War!");
+    setOnClick(warButton,() => {
+        warButton.remove();
+        warIcon = 
+`
+|     |
+| War |
+|     |
+`
+        warTab = newTab("war",warIcon);
+        selectTab("war");
+        setTimeout(resetExplore,10000);
+    });
 }
 
 //A function used in creating events. Used for simple events with a few buttons
@@ -867,7 +1433,7 @@ function exploreChoice(mainText,button1Text,button1Req,button1Amount,button1Func
         registerButtonListener(exploreOption3,button3Req,button3Amount);
     }
 
-    exploreOption1.addEventListener('click',function() {
+    setOnClick(exploreOption1,function() {
         exploreOption1.remove();
         exploreOption2.remove();
         if(button3Text){
@@ -877,7 +1443,7 @@ function exploreChoice(mainText,button1Text,button1Req,button1Amount,button1Func
         button1Func();
     });
 
-    exploreOption2.addEventListener('click',function(){
+    setOnClick(exploreOption2,function(){
         exploreOption1.remove();
         exploreOption2.remove();
         if(button3Text){
@@ -888,7 +1454,7 @@ function exploreChoice(mainText,button1Text,button1Req,button1Amount,button1Func
     });
 
     if(button3Text){
-        exploreOption3.addEventListener('click',function(){
+        setOnClick(exploreOption3,function(){
             exploreOption1.remove();
             exploreOption2.remove();
             exploreOption3.remove();
@@ -908,12 +1474,13 @@ function unlockBuild(){
     buildMenu.style.display = "flex";
     let buildButton = get("build-button");
     buildList = get("select-build");
+    newChild(buildList,"option","build-torch","Torch");
     newChild(buildList,"option","build-trap","Trap");
     newChild(buildList,"option","build-basket","Basket");
     newChild(buildList,"option","build-harness","Harness");
     buildList.addEventListener('change',updateBuildList);
     updateBuildList();
-    buildButton.addEventListener('click',buildItem);
+    setOnClick(buildButton,buildItem);
 }
 function updateBuildList(){
     let buildList = get("select-build");
@@ -922,6 +1489,10 @@ function updateBuildList(){
     let currentSelection = buildList.options[buildList.selectedIndex].text;
     let woodCost = 0;
     switch(currentSelection){
+        case "Torch":
+            buildDescription.innerText = convertString("Really just a stick to light on fire. Could be useful while exploring.");
+            woodCost = 5;
+        break;
         case "Trap":
             buildDescription.innerText = convertString("A simple trap that you can hide in the underbrush of the forest. It can catch small critters for meat.");
             woodCost = 10;
@@ -931,7 +1502,7 @@ function updateBuildList(){
             woodCost = 20;
             break;
         case "Harness":
-            buildDescription.innerText = convertString("A lightweight harness with pouches attached will allow one of your trained animals to carry much more fruit as they forage");
+            buildDescription.innerText = convertString("A lightweight harness with pouches attached will allow one of your trained animals to carry much more fruit as they forage.");
             woodCost = 25;
             break;
 
@@ -948,6 +1519,16 @@ function buildItem(){
     let currentSelection = buildList.options[buildList.selectedIndex].text;
     let woodCost = 0;
     switch(currentSelection){
+        case "Torch":
+            resources['wood'] -= 5;
+            if(!resources['torch']){
+                resources['torch'] = 1;
+            } else {
+                resources['torch']++;
+            }
+            updateResourceDisplay();
+
+        break;
         case "Trap":
             resources['wood'] -= 10;
             updateResourceDisplay();
@@ -1032,6 +1613,21 @@ function get(id){
     return document.getElementById(id);
 }
 
+function setOnClick(button,onClick){
+    button.addEventListener('click',onClick);
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            mutation.removedNodes.forEach((node) => {
+                if (node === button) {
+                    //console.log("button deleted. Removing click listener");
+                    button.removeEventListener('click',onClick);
+                    observer.disconnect();
+                }
+            });
+        });
+    });
+    observer.observe(button.parentNode,{ childList: true });
+}
 function newChild(parent,type,id,text,classList){
     child = document.createElement(type);
     if(id != null){
@@ -1085,11 +1681,42 @@ function produceConsumeResource(resourceNames,amount){
     }
 }
 
+function removeTree(node){
+    if(node.firstChild){
+        for (child of node.children){
+            removeTree(child);
+        }
+    }
+    node.replaceChildren();
+}
+function feedCurrMon() {
+    let mon = mons[get("select-mon").value];
+    unregisterListener(feedListener);
+    let feedCost = 5*mons.length + 10;
+    if(mon.carnivore){
+        resources['meat'] -= feedCost;
+    } else {
+        resources['fruit'] -= feedCost;
+    }
+    updateResourceDisplay();
+    if(mons.length < 2){
+        //first mon tames easier
+        mon.tame += 40; 
+    } else {
+        mon.tame += Math.floor(Math.random()*20)+10;
+    }
+    if (mon.tame > 100){mon.tame = 100;}
+    mon.feedCooldown.val = 20;
+    cooldown(mon.feedCooldown,function () {updateMonCard("feed button")});
+    updateMonCard("feed button");
+    updateMonCard("tameness");
+}
 function updateMonCard(element)
 {   
     if(element == null){
     let currCard = get("mon-card");
     if(currCard != null){
+        removeTree(currCard);
         currCard.remove();
     }
     selectedMon = get("select-mon").value;
@@ -1176,7 +1803,7 @@ function updateMonCard(element)
                             break;
                         case "Gathering":
                             taskFlavor.innerText = "Producing ";
-                            amount = BASE_MON_FRUIT_PRODUCTION * mon.tame/100 * ((mon.traits.has('harness'))?1.5:1.0) * ((mon.element == "air")?1.2:1.0);
+                            amount = BASE_MON_FRUIT_PRODUCTION * mon.tame/100 * ((mon.traits.has('harness'))?1.5:1.0) * ((mon.element == "air" || mon.element == "water")?1.2:1.0);
                             taskOutput.innerText = amount.toFixed(1) + " fruit/10s";
                             if(mon.resourceProduction != null){
                                 intervals.delete(mon.resourceProduction);
@@ -1269,34 +1896,13 @@ function updateMonCard(element)
                     } else {
                         feedMon.innerText = "Feed"
                         let feedCost = 5*mons.length + 10;
-                        copyFeedMon = feedMon.cloneNode(true)
-                        feedMon.replaceWith(copyFeedMon);
-                        let listener;
+                        feedMon.removeEventListener('click',feedCurrMon);
                         if(mon.carnivore){
-                            listener = registerButtonListener(copyFeedMon,["meat"],[feedCost]);
+                            feedListener = registerButtonListener(feedMon,["meat"],[feedCost]);
                         }else {
-                            listener = registerButtonListener(copyFeedMon,["fruit"],[feedCost]);
+                            feedListener = registerButtonListener(feedMon,["fruit"],[feedCost]);
                         }
-                        copyFeedMon.addEventListener('click',() =>{
-                            unregisterListener(listener);
-                            if(mon.carnivore){
-                                resources['meat'] -= feedCost;
-                            } else {
-                                resources['fruit'] -= feedCost;
-                            }
-                            updateResourceDisplay();
-                            if(mons.length < 2){
-                                //first mon tames easier
-                                mon.tame += 40; 
-                            } else {
-                                mon.tame += Math.floor(Math.random()*20)+10;
-                            }
-                            if (mon.tame > 100){mon.tame = 100;}
-                            mon.feedCooldown.val = 20;
-                            cooldown(mon.feedCooldown,function () {updateMonCard("feed button")});
-                            updateMonCard("feed button");
-                            updateMonCard("tameness");
-                        });
+                        setOnClick(feedMon,feedCurrMon);
                     }
                 } else {
                     feedMon.style.visibility = "hidden";
@@ -1311,7 +1917,7 @@ function updateMonCard(element)
                         harnessButton = newChild(get('mon-actions'),'button','harness-button',"Equip Harness",'small button');
                         spacing = newChild(get('mon-stats'),'button',null,'','small button');
                         spacing.style.visibility = 'hidden';
-                        harnessButton.addEventListener('click',() => {
+                        setOnClick(harnessButton,() => {
                             resources['harness']--;
                             updateResourceDisplay();
                             mon.traits.add('harness');
@@ -1334,7 +1940,7 @@ function updateMonCard(element)
                     conferButton2 = newChild(get('mon-actions'),'button','confer-button-2','Confer ' + ele2,"small button");
                     registerButtonListener(conferButton1,["mystic herbs"],[4]);
                     registerButtonListener(conferButton2,["mystic herbs"],[4]);
-                    conferButton1.addEventListener('click',() => {
+                    setOnClick(conferButton1,() => {
                         conferButton1.remove();
                         conferButton2.remove();
                         resources['mystic herbs'] -=4;
@@ -1342,7 +1948,7 @@ function updateMonCard(element)
                         mon.element = ele;
                         updateMonCard();
                     });
-                    conferButton2.addEventListener('click',() => {
+                    setOnClick(conferButton2,() => {
                         conferButton1.remove();
                         conferButton2.remove();
                         resources['mystic herbs'] -=4;
@@ -1421,7 +2027,6 @@ class Mon{
     constructor(){
         this.nickname = null;
         this.tame = 0;
-        this.level = 0;
         this.traits = new Set([]);
         this.species = "fox";
         this.element = "";
@@ -1430,6 +2035,16 @@ class Mon{
         this.resourceProduction = null;
         this.selectedTask = 0;
         this.eleChoice = Math.floor(Math.random()*2);
+
+
+        this.level = 0;
+        this.exp = 0;
+        this.speed = 1;
+        this.fly = false;
+        this.maxhp = 10;
+        this.attack = "claw";
+        this.dr = 0;
+
     }
 
 
@@ -1440,7 +2055,7 @@ class Mon{
         let monActions = newChild(monDiv,"div","mon-actions","","moncolumn");
         let monName = newChild(monStats,"div","mon-name",this.nickname,"monentry");
         let monRename = newChild(monActions,"button","mon-rename","Rename","small");
-        monRename.addEventListener('click', () =>
+        setOnClick(monRename, () =>
         {
             let newName = prompt("Enter a new nickname for " + this.nickname);
             if(newName != null){
@@ -1478,30 +2093,11 @@ class Mon{
             let feedCost = 5*mons.length + 10;
             let listener
             if(this.carnivore){
-                listener = registerButtonListener(feedMon,["meat"],[feedCost]);
+                feedListener = registerButtonListener(feedMon,["meat"],[feedCost]);
             }else {
-                listener = registerButtonListener(feedMon,["fruit"],[feedCost]);
+                feedListener = registerButtonListener(feedMon,["fruit"],[feedCost]);
             }
-            feedMon.addEventListener('click',() =>{
-                unregisterListener(listener);
-                if(this.carnivore){
-                    resources['meat'] -= feedCost;
-                } else {
-                    resources['fruit'] -= feedCost;
-                }
-                updateResourceDisplay();
-                if(mons.length < 2){
-                    //first mon tames easier
-                    this.tame += 40; 
-                } else {
-                    this.tame += Math.floor(Math.random()*20)+10;
-                }
-                if (this.tame > 100){this.tame = 100;}
-                this.feedCooldown.val = 20;
-                cooldown(this.feedCooldown,function (){updateMonCard("feed button")});
-                updateMonCard("feed button");
-                updateMonCard("tameness");
-            });
+            setOnClick(feedMon,feedCurrMon);
             }
         } else {
             let feedMon = newChild(monActions,"button","feed-button","Feed " + this.feedCooldown.val + "s","small");
@@ -1527,6 +2123,9 @@ class Mon{
                 newChild(actionList,"option",null,"Digging");
             } else if (this.element == "fire"){
                 newChild(actionList,"option",null,"Smelting");
+            }
+            if(perks.has('training ground')){
+                newChild(actionList,"option",null,"Training");
             }
 
             actionList.selectedIndex = this.selectedTask;
@@ -1620,7 +2219,7 @@ class Mon{
             let harnessButton = newChild(monActions,'button','harness-button',"Equip Harness",'small button');
             let spacing = newChild(monStats,'button',null,'','small button');
             spacing.style.visibility = 'hidden';
-            harnessButton.addEventListener('click',() => {
+            setOnClick(harnessButton,() => {
                 resources['harness']--;
                 updateResourceDisplay();
                 this.traits.add('harness');
@@ -1634,7 +2233,7 @@ class Mon{
             let conferButton2 = newChild(monActions,"button",'confer-button-2','Confer ' + element2,"small button");
             registerButtonListener(conferButton1,["mystic herbs"],[4]);
             registerButtonListener(conferButton2,["mystic herbs"],[4]);
-            conferButton1.addEventListener('click',() => {
+            setOnClick(conferButton1,() => {
                 conferButton1.remove();
                 conferButton2.remove();
                 resources['mystic herbs'] -=4;
@@ -1642,7 +2241,7 @@ class Mon{
                 this.element = element;
                 updateMonCard();
             });
-            conferButton2.addEventListener('click',() => {
+            setOnClick(conferButton2,() => {
                 conferButton1.remove();
                 conferButton2.remove();
                 resources['mystic herbs'] -=4;
@@ -1656,4 +2255,20 @@ class Mon{
 
         return monDiv;
     }
+}
+
+
+class CombatCreature {
+    constructor(maxhp,dr,speed,dmgDice,diceCount,dmgBonus,fly,team){
+        this.maxhp = maxhp;
+        this.currhp = maxhp;
+        this.dr = dr;
+        this.speed = speed;
+        this.dmgDice = dmgDice;
+        this.diceCount = diceCount;
+        this.dmgBonus = dmgBonus;
+        this.fly = fly;
+        this.team = team;
+    }
+
 }
