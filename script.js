@@ -24,6 +24,8 @@ let resources = {'fruit':0,'meat':0,'wood':0,'mystic herbs':0,'ore':0,'metal':0,
 let exploreListener = null;
 let feedListener = null;
 
+let currentBattle = null;
+
 let BASE_MON_FRUIT_PRODUCTION = 2;
 let BASE_MON_MEAT_PRODUCTION = 4;
 let BASE_MON_HERB_PRODUCTION = 0.25;
@@ -31,6 +33,7 @@ let BASE_MON_ORE_PRODUCTION = 1.0;
 let BASE_MON_CONSUME = 2;
 const ROW_SIZE = 50;
 const EXPLORE_COST = 10;
+const TILE_SIZE = 20;
 function convertString(input){
     let output = '';
     let inputWords = input.split(' ');
@@ -113,7 +116,9 @@ const berryLocations = [C(100,115),C(115,113),C(127,115),C(89,112),C(75,114),C(6
 ];
 function addBerry(){
     let thisCoord = berryLocations[Math.floor(Math.random() * berryLocations.length)];
-    let berryDiv = newChild(get('bush-wrapper'),"div",null,"O","clickable berry");
+    thisCoord.x -= Math.random()*2+4.5;
+    thisCoord.y -= Math.random()*2+4.5;
+    let berryDiv = newChild(get('bush-wrapper'),"div",null,"⚫︎","clickable berry");
     //let berryDiv = document.createElement("div");
     //berryDiv.innerText = "O";
     //berryDiv.classList = "clickable berry";
@@ -357,6 +362,8 @@ function firstMonEvent(){
                 startingMon.nickname = name;
                 startingMon.traits = new Set([]);
                 startingMon.tame = 30;
+                startingMon.speed = 3;
+                startingMon.maxhp = 15;
                 mons.push(startingMon);
                 nameButton.remove();
                 groveText.innerText = "Maybe if " + startingMon.nickname + " trusts you enough\nthey will gather materials for you";
@@ -609,6 +616,7 @@ function event1(){ //tame squirrel
             newMon.nickname = creatureType;
             newMon.nickname = newMon.nickname.charAt(0).toUpperCase() + newMon.nickname.slice(1);
             newMon.tame = 20;
+            newMon.size = 4;
             mons.push(newMon);
             updateMonList();
             alignment += 3;
@@ -636,6 +644,7 @@ function event2(){ //tame wolf
             newMon.nickname = "Wolf";
             newMon.tame = 40;
             newMon.carnivore = true;
+            newMon.size = 8;
             mons.push(newMon);
             updateMonList();
             alignment += 3;
@@ -686,6 +695,7 @@ function event5(){ //tame fawn
             newMon.level = 1;
             newMon.nickname = "Deer";
             newMon.tame = 35;
+            newMon.size = 8;
             mons.push(newMon);
             updateMonList();
             alignment += 3;
@@ -735,6 +745,9 @@ function event6a(){
             newMon.level = 1;
             newMon.nickname = "Raven";
             newMon.tame = 10;
+            newMon.size = 4;
+            newMon.speed = 3;
+            newMon.fly = true;
             mons.push(newMon);
             updateMonList();
             setTimeout(resetExplore,20000);
@@ -841,6 +854,7 @@ function event11(){ //tame eagle
                 eagle.level = 1;
                 eagle.carnivore = true;
                 eagle.tame = 30;
+                eagle.fly = true;
                 mons.push(eagle);
                 updateMonList();
                 setTimeout(resetExplore,15000);
@@ -907,6 +921,9 @@ function event12a() {
             jaguar.species = "jaguar";
             jaguar.tame = 5;
             jaguar.level = 3;
+            jaguar.maxhp = 25;
+            jaguar.size = 8;
+
             jaguar.carnivore = true;
             mons.push(jaguar);
             updateMonList();
@@ -954,6 +971,8 @@ function event13() { //Tame Bun
             bun.nickname = "Fluff Bundle";
             bun.level = 1;
             bun.tame = 40;
+            bun.size = 4;
+
             mons.push(bun);
             updateMonList();
             setTimeout(resetExplore,20000);
@@ -972,6 +991,7 @@ function event13() { //Tame Bun
                 bun.nickname = "Fluff Bundle";
                 bun.level = 1;
                 bun.tame = 30;
+                bun.size = 4;
                 mons.push(bun);
                 updateMonList();
                 setTimeout(resetExplore,20000);
@@ -1087,6 +1107,7 @@ function event18() { //tame badger
             badger = new Mon();
             badger.level = 1;
             badger.tame = 10;
+            badger.speed = 3;
             badger.nickname = "Badger";
             badger.species = "badger";
             badger.carnivore = true;
@@ -1181,6 +1202,9 @@ function event21(){ //tame bear cub
             cub.nickname = "Bear Cub";
             cub.species = "bear";
             cub.tame = 0;
+            cub.size = 10;
+            cub.speed = 1;
+            cub.hp = 20;
             mons.push(cub);
             updateMonList();
             alignment -= 5;
@@ -2027,8 +2051,6 @@ class GenericListener {
     }
 }
 
-
-
 class Mon{
     constructor(){
         this.nickname = null;
@@ -2045,11 +2067,11 @@ class Mon{
 
         this.level = 0;
         this.exp = 0;
-        this.speed = 1;
+        this.speed = 2;
         this.fly = false;
         this.maxhp = 10;
-        this.attack = "claw";
-        this.dr = 0;
+        //this.attack = "claw";
+        this.size = 6;
 
     }
 
@@ -2261,11 +2283,37 @@ class Mon{
 
         return monDiv;
     }
+    updateExp(){
+        let nextLevel = 400+100*this.level;
+        if (this.exp >= nextLevel){
+            this.exp -= nextLevel;
+            this.level++;
+            updateMonCard("level");
+            this.maxhp += 1 + Math.floor(size/2) + Math.floor(Math.random()*3);
+        }
+    }
+    getCombatStats(){
+        //dice size is same as mon size
+        let avgDamage = Math.floor((1.25+this.size/8+((this.element == 'fire')?0.5:0)+((this.element == 'air')?0.25:0))*this.level)+2;
+        let numDice = Math.floor(avgDamage/((this.size+1)/2));
+        let dmgBonus = avgDamage - Math.ceil(numDice*(this.size+1)/2);
+        let dr = Math.floor((this.size/16-((this.element == 'air')?0.2:0))*this.level)+((this.element == 'earth')?3:0);
+        let stats = new CombatCreature(this.nickname,this,this.level,this.maxhp,dr,this.speed+((this.element == 'air')?1:0),this.size,numDice,dmgBonus,1);
+        stats.fly = this.fly||this.element=='air';
+        stats.swim = this.element == 'water';
+        stats.burrow = this.element == 'earth';
+        stats.flavor = this.element + " " + this.species;
+        return stats;
+    }
 }
 
 
 class CombatCreature {
-    constructor(maxhp,dr,speed,dmgDice,diceCount,dmgBonus,fly,team){
+    constructor(name,card,level,maxhp,dr,speed,dmgDice,diceCount,dmgBonus,team){
+        this.level = level;
+        this.card = card;
+        this.name = name;
+        this.symbol = name.charAt(0);
         this.maxhp = maxhp;
         this.currhp = maxhp;
         this.dr = dr;
@@ -2273,8 +2321,644 @@ class CombatCreature {
         this.dmgDice = dmgDice;
         this.diceCount = diceCount;
         this.dmgBonus = dmgBonus;
-        this.fly = fly;
+        this.fly = false;
+        this.swim = false;
+        this.burrow = false;
         this.team = team;
+        this.index = null;
+        this.flavor = "";
+
+        this.exhausted = false;
+        this.location;
     }
 
+    clone(){
+        let newCreature = new CombatCreature(this.name,this.card, this.level,this.maxhp,this.dr,this.speed,this.dmgDice,this.diceCount,this.dmgBonus,this.team);
+        newCreature.fly = this.fly;
+        newCreature.swim = this.swim;
+        newCreature.burrow = this.burrow;
+        newCreature.symbol = this.symbol;
+        return newCreature;
+    }
+
+    simpleAIMove(scene) {
+        let location = this.location;
+        let target = this.searchArea(location,7,scene);
+        if(target == null){
+            let rnd = Math.floor(Math.random()*5);
+            switch(rnd){
+                case 0:
+                    target = C(location.x,location.y+1);
+                    break;
+                case 1:
+                    target = C(location.x+1,location.y);
+                    break;
+                case 2:
+                    target = C(location.x-1,location.y);
+                    break;
+                case 3:
+                    target = C(location.x,location.y-1);
+                    break;
+                case 4:
+                default:
+                    target = location;
+            }
+            if(target.x < 0) target.x = 0;
+            if(target.y < 0) target.y = 0;
+            if(target.x >= scene.width) target.x = scene.width - 1;
+            if(target.y >= scene.height) target.y = scene.height - 1;
+            if(scene.at(target).passable(this)){
+                scene.moveCreature(location.x,location.y,target.x,target.y);
+            }
+        } else {
+            let tileTarget;
+            if(target.path.length <= this.speed){
+                tileTarget = target.coord;
+            } else {
+                tileTarget = target.path[this.speed-1];
+            }
+            let i = 2;
+            while(tileTarget && scene.at(tileTarget).creature){
+                tileTarget = target.path[this.speed-i];
+                i++;
+            }
+            if(tileTarget){
+                scene.moveCreature(location.x,location.y,tileTarget.x,tileTarget.y);
+                
+            }
+            let enemies = scene.getAdjEnemy(this);
+            if(enemies.length > 0){
+                scene.attack(this,enemies[Math.floor(Math.random()*enemies.length)]);
+            }
+        }
+    }
+
+    searchArea(location,distance,scene){
+        let searchQueue = new Queue();
+        let distances = new Queue();
+        let searched = new Set();
+        searchQueue.add({coord: C(location.x,location.y+1),path:[C(location.x,location.y+1)]});
+        distances.add(distance);
+        searchQueue.add({coord: C(location.x,location.y-1),path:[C(location.x,location.y-1)]});
+        distances.add(distance);
+        searchQueue.add({coord: C(location.x+1,location.y),path:[C(location.x+1,location.y)]});
+        distances.add(distance);
+        searchQueue.add({coord: C(location.x-1,location.y),path:[C(location.x-1,location.y)]});
+        distances.add(distance);
+        while(searchQueue.next()){
+            let ele = searchQueue.pop();
+            let currPath = ele.path;
+            location = ele.coord;
+            let newdist = distances.pop() - 1;
+            if(newdist < 0) continue;
+            let tile = scene.at(location)
+            if(tile && tile.creature){
+                if(tile.creature.team != this.team){
+                    return {coord:ele.path[ele.path.length-2],path:ele.path.slice(0,-1)};
+                }
+            }
+            searched.add(location);
+            if(tile && tile.passable(this)){
+                if(!searched.has(C(location.x+1,location.y))) {
+                    searchQueue.add({coord: C(location.x+1,location.y),path:[...currPath,C(location.x+1,location.y)]});
+                    distances.add(newdist);
+                }
+                if(!searched.has(C(location.x-1,location.y))) {
+                    searchQueue.add({coord: C(location.x-1,location.y),path:[...currPath,C(location.x-1,location.y)]});
+                    distances.add(newdist);
+                }
+                if(!searched.has(C(location.x,location.y+1))){
+                    searchQueue.add({coord: C(location.x,location.y+1),path:[...currPath,C(location.x,location.y+1)]});
+                    distances.add(newdist);
+                } 
+                if(!searched.has(C(location.x,location.y-1))){
+                    searchQueue.add({coord: C(location.x,location.y-1),path:[...currPath,C(location.x,location.y-1)]});
+                    distances.add(newdist);
+                } 
+            }
+        }
+        return null;
+    }
+
+}
+function getTileName(symbol){
+    switch(symbol){
+        case ".":
+            return "Plains";
+        case "~":
+            return "Water";
+        case "^":
+            return "Mountain";
+        case "#":
+            return "Bridge";
+        case "%":
+            return "Foliage"; 
+        default:
+            return "Generic";
+    }
+}
+class Tile {
+    constructor(letter, color = "#F0F0F0") {
+        this.letter = letter;
+        this.color = color;
+        //this.contents = new Set();
+        this.creature = null;
+        this.armorBonus = 0;
+        this.moveCost = 1;
+        switch(this.letter){
+            case '%':
+                this.moveCost = 2;
+                this.armorBonus = 2;
+                break;
+            case '^':
+                this.moveCost = 2;
+                this.armorBonus = 3;
+        }
+    }
+
+    passable(creature){
+        if(this.creature){
+            if(this.creature.team != creature.team){
+                return false;
+            }
+        }
+        switch(this.letter){
+            case '|':
+            case '-':
+                return false;
+            case '~':
+                return creature.swim || creature.fly;
+            case '^':
+                return creature.burrow || creature.fly;
+            case '.':
+            case '%':
+            default:
+                return true;
+        }
+    }
+}
+class CombatScene {
+    constructor(){
+        this.map = [];
+        this.width = 0;
+        this.height = 0;
+        this.selectedCreature = 0;
+        this.selectedX = null;
+        this.selectedY = null;
+        this.moveTiles = new Set();
+        this.creatures = new Set();
+        this.allyTiles = new Set();
+        this.enemyTiles = new Set();
+        
+        this.targetEnemies = null;
+    }
+    initEmptyMap(width,height) {
+        this.map = Array.from({ length: height }, () =>
+            Array.from({ length: width }, () => new Tile(' '))
+        );
+        this.redraw();
+        this.addClickListener();
+    }
+    async loadMapFromFile(fileUrl) {
+        try {
+            const response = await fetch(fileUrl);
+            const text = await response.text();
+
+            const lines = text.trim().split('\n').map(line => line.trim());
+            this.height = lines.length;
+            this.width = lines[0].length;
+
+            this.map = [];
+
+            for (let i = 0; i < this.height; i++) {
+                const row = [];
+                for (let j = 0; j < this.width; j++) {
+                    const char = lines[i][j];
+                    let tile;
+                    if(char == 'A'){
+                        tile = new Tile('.');
+                        this.allyTiles.add(C(j,i));
+                    } else if (char == 'E'){
+                        tile = new Tile('.');
+                        this.enemyTiles.add(C(j,i));
+                    }
+                    else {
+                        tile = new Tile(char);
+                    }
+                    
+                    
+
+                    row.push(tile);
+                }
+                this.map.push(row);
+            }
+
+            this.redraw(); // Draw the map once it's loaded
+            this.addClickListener();
+        } catch (error) {
+            console.error("Error loading the map file:", error);
+        }
+    }
+    addAllies(allyList){
+        let i = 0;
+        for(let tile of this.allyTiles){
+            if(!allyList[i]){
+                break;
+            }
+            this.addCreature(tile.x,tile.y,allyList[i]);
+            i++;
+        }
+    }
+    addEnemies(enemyList){
+        let i = 0;
+        for(let tile of this.enemyTiles){
+            if(!enemyList[i]){
+                break;
+            }
+            this.addCreature(tile.x,tile.y,enemyList[i]);
+            i++;
+        }
+    }
+    redraw(){
+        const canvas = get("battle-map");
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        canvas.width = this.width * TILE_SIZE;
+        canvas.height = this.height * TILE_SIZE;
+
+        canvas.addEventListener('mousemove', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            let tileX = Math.floor(x / TILE_SIZE);
+            let tileY = Math.floor(y / TILE_SIZE);
+            if(tileX < 0 || tileX >= this.width){
+                tileX = 0;
+            }
+            if(tileY < 0 || tileY >= this.height){
+                tileY = 0;
+            }
+            const tile = this.map[tileY][tileX];
+    
+            if (tile && tile.creature) {
+                let hoverCreature = tile.creature;
+                let tooltipText = `${hoverCreature.name}\nlevel ${hoverCreature.level}\nhp ${hoverCreature.currhp}/${hoverCreature.maxhp}`;
+                tooltip.style.visibility = 'visible';
+                tooltip.style.opacity = 1;
+                tooltip.style.display = 'block';
+                tooltip.style.padding = '2px 4px';
+                tooltip.innerText = tooltipText;
+                tooltip.style.left = `${event.clientX + window.scrollX}px`;
+                tooltip.style.top = `${event.clientY -155 + window.scrollY}px`;
+            } else {
+                
+                tooltip.style.visibility = 'hidden';
+                tooltip.style.opacity = 0;
+            }
+        });
+    
+        canvas.addEventListener('mouseout', () => {
+            //tooltip.style.display = 'none';
+            tooltip.style.visibility = 'hidden';
+        });
+
+        for (let i = 0; i < this.height; i++) {
+            for (let j = 0; j < this.width; j++) {
+                const tile = this.map[i][j];
+
+                ctx.fillStyle = "#F0F0F0";
+                if(this.moveTiles.has(this.map[i][j])){
+                    if(this.selectedCreature.team == 1 && !this.selectedCreature.exhausted){
+                        ctx.fillStyle = "#80A0D0";
+                    } else {
+                        ctx.fillStyle = "#909090";
+                    }
+                }
+                ctx.fillRect(j * TILE_SIZE, i * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+
+                ctx.fillStyle = "#101010";
+                if(tile.creature && tile.creature.exhausted) ctx.fillStyle = "#B0B0B0";
+                ctx.font = "20px monospace";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                let char = ((tile.creature)?tile.creature.symbol:tile.letter);
+                ctx.fillText(char, j * TILE_SIZE + TILE_SIZE / 2, i * TILE_SIZE + TILE_SIZE / 2);
+                if(this.targetEnemies != null){
+                    if(this.targetEnemies.includes(tile.creature)){
+                        ctx.fillStyle = "#D00000";
+                        ctx.fillText("◎", j * TILE_SIZE + TILE_SIZE / 2, i * TILE_SIZE + TILE_SIZE / 2);
+                    }
+                }
+            }
+        }
+
+    }
+    at(coords){
+        if(coords.x < 0 || coords.x >= this.width || coords.y < 0 || coords.y >= this.height) return null;
+        //console.log(`At coords ${coords.x},${coords.y}`);
+        return this.map[coords.y][coords.x];
+    }
+    addClickListener() {
+        const canvas = get("battle-map");
+        canvas.addEventListener("click", (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+
+
+            const tileX = Math.floor(x / TILE_SIZE);
+            const tileY = Math.floor(y / TILE_SIZE);
+
+
+            const clickedTile = this.map[tileY][tileX];
+            //console.log("Click on tile " + tileX + "," + tileY);
+            if(this.targetEnemies != null){
+                if(clickedTile.creature != this.selectedCreature){
+                    if(this.targetEnemies.includes(clickedTile.creature)){
+                        this.attack(this.selectedCreature,clickedTile.creature);
+                        this.selectedCreature.exhausted = true;
+                        this.targetEnemies = null;
+                        this.deselectCreature();
+                        
+                    } else {
+                        this.selectedCreature.exhausted = true;
+                        this.targetEnemies = null;
+                        this.deselectCreature();
+                        this.selectCreature(tileX,tileY,clickedTile.creature);
+                        
+                    }
+                } else {
+                    this.selectedCreature.exhausted = true;
+                    this.targetEnemies = null;
+                    this.deselectCreature();
+                    
+                }
+            } else{
+                if (clickedTile.creature && clickedTile.creature != this.selectedCreature) {
+                    this.selectCreature(tileX,tileY,clickedTile.creature);
+                } else {
+                    if(clickedTile.creature && clickedTile.creature == this.selectedCreature){
+                        if(clickedTile.creature.team == 1 && !clickedTile.creature.exhausted){
+                        let enemies = this.getAdjEnemy(this.selectedCreature);
+                        if(enemies.length > 0){
+                            this.targetEnemies = enemies;
+                            this.moveTiles.clear();
+                            this.redraw();
+                            return;
+                        }
+                        }
+                    }
+                    if(this.moveTiles.has(this.map[tileY][tileX]) && this.selectedCreature.team == 1 && !this.selectedCreature.exhausted){
+                        this.moveCreature(this.selectedX,this.selectedY,tileX,tileY);
+                        let adjEnemies = this.getAdjEnemy(this.at(C(tileX,tileY)).creature);
+                        if(adjEnemies.length > 0){
+                            this.targetEnemies = adjEnemies;
+                            this.moveTiles.clear();
+                            this.redraw();
+                        } else{
+                            this.map[tileY][tileX].creature.exhausted = true;
+                            this.deselectCreature();
+                        }
+                    } else {
+                        this.deselectCreature();
+                    }
+                }
+            }
+        });
+    }
+    selectCreature(x,y,creature) {
+        this.selectedCreature = creature;
+        this.selectedX = x;
+        this.selectedY = y;
+        let battleInfo = get("battle-info");
+        battleInfo.innerHTML = `<div style="font-size:12px">${getTileName(this.map[y][x].letter)}(${this.map[y][x].letter}) Tile</div>
+${(creature.team == 1)?"Ally":"Enemy"} ${creature.name}<br>
+<div style="font-size:12px">${creature.flavor} level  ${creature.level}</div>
+Health  ${creature.currhp}/${creature.maxhp}<br>
+Armor  ${creature.dr}(${(this.map[y][x].armorBonus < 0)?"-":"+"}${this.map[y][x].armorBonus})<br>
+Attack  ${creature.diceCount}d${creature.dmgDice}+${creature.dmgBonus}<br>
+Move  ${creature.speed} tiles<br>
+${(creature.fly)?"Flying ":""}${(creature.swim)?"Swimming ":""}${(creature.burrow)?"Burrowing ":""}`;
+        battleInfo.style.visibility = 'visible';
+        this.moveTiles.clear();
+        this.calcMovement(x,y,creature.speed+this.map[y][x].moveCost);
+        this.redraw();
+    }
+    deselectCreature() {
+        this.selectedCreature = null;
+        this.selectedX = null;
+        this.selectedY = null;
+        this.moveTiles.clear();
+        get('battle-info').style.visibility = 'hidden';
+        this.redraw();
+    }
+    calcMovement(x,y,tiles){
+        if(x < 0 || x >= this.width || y < 0 || y >= this.height) return;
+        let tile = this.map[y][x];
+        if(!tile.passable(this.selectedCreature)) return;
+
+        if(!tile.creature){
+            this.moveTiles.add(this.map[y][x]);
+        }
+        tiles -= tile.moveCost; 
+        if(tiles < 1) return;
+        else {
+            this.calcMovement(x+1,y,tiles);
+            this.calcMovement(x-1,y,tiles);
+            this.calcMovement(x,y+1,tiles);
+            this.calcMovement(x,y-1,tiles);
+        }
+    }
+    getAdjEnemy(creature){
+        let enemies = [];
+        let adjacents = [];
+        let tileTarget = creature.location;
+        adjacents.push(C(tileTarget.x+1,tileTarget.y));
+        adjacents.push(C(tileTarget.x-1,tileTarget.y));
+        adjacents.push(C(tileTarget.x,tileTarget.y+1));
+        adjacents.push(C(tileTarget.x,tileTarget.y-1));
+        for(let i = 0; i < 4; i++){
+            let tileAttack = this.at(adjacents[i]);
+            if(tileAttack != null && tileAttack.creature != null && tileAttack.creature.team != creature.team){
+                enemies.push(tileAttack.creature);
+            }
+        }
+        return enemies;
+    }
+    moveCreature(startx,starty,endx,endy,creature){
+        let targetCreature = creature;
+        if(startx != null && starty != null){
+            let startTile = this.map[starty][startx];
+            targetCreature = startTile.creature;
+            startTile.creature = null;
+        } else {
+            this.creatures.add(creature);
+        }
+        if(endx != null && endy != null){
+            let targetTile = this.map[endy][endx]; //Note that 2d arrays are often y,x but we use x,y with the function arguments cause I like it better
+            if(targetTile.creature) console.log(`Error: creature already exists at ${endx},${endy}. Deleting it`);
+            targetTile.creature = targetCreature;
+            targetCreature.location = C(endx,endy);
+        } else {
+            this.creatures.delete(targetCreature);
+        }
+        this.redraw();
+    }
+    addCreature(x,y,creature){
+        this.moveCreature(null,null,x,y,creature);
+    }
+    removeCreature(x,y){
+        this.moveCreature(x,y);
+    }
+    async endTurn() {
+        get('end-turn').disabled = true;
+        for(let creature of this.creatures){
+            if(creature.team == 1){
+                creature.exhausted = true;
+            }
+        }
+        for(let enemy of this.creatures){
+            if(enemy.team == 1) continue;
+            enemy.simpleAIMove(this);
+            await new Promise(r => setTimeout(r, 1000));
+        }        
+
+        for(let creature of this.creatures){
+            if(creature.team == 1){
+                creature.exhausted = false;
+            }
+        }
+        this.redraw();
+        get('end-turn').disabled = false;
+
+    }
+    attack(agrCreature,defCreature){
+        let damage = agrCreature.dmgBonus;
+        for(let i = 0; i < agrCreature.diceCount; i++){
+            damage += Math.floor(Math.random()*agrCreature.dmgDice) + 1
+        }
+        damage = Math.max(Math.floor(damage/2),damage-(defCreature.dr*Math.ceil(defCreature.level/3))-this.at(defCreature.location).armorBonus);
+        defCreature.currhp -= damage;
+        let notification = get('battle-notification');
+        notification.innerText = `${agrCreature.name} attacks ${defCreature.name} dealing ${damage} damage.`;
+        if(defCreature.currhp < 1){
+            if(defCreature.team == 1){
+                notification.innerText += ` ${defCreature.name} retreats to the grove!`;
+                defCreature.card.tame -= Math.floor(Math.random()*20)+10;
+                updateMonCard("tame");
+            } else {
+                notification.innerText += ` ${defCreature.name} is killed!`;
+            }
+            this.removeCreature(defCreature.location.x,defCreature.location.y);
+            if(agrCreature.team == 1){
+                let leveldiff = Math.max(0,(defCreature.level - agrCreature.level + 4));
+                let expGain = leveldiff*25+Math.floor(Math.random()*40 - 19);
+                agrCreature.card.exp += Math.max(0,expGain);
+                agrCreature.card.updateExp();
+                notification.innerText += ` ${agrCreature.name} gains ${Math.max(0,expGain)} exp!`;
+            }
+        }
+    }
+}
+class Node {
+    constructor(val,next) {
+        this.val = val;
+        this.next = next;
+    }
+}
+class Queue {
+    construnctor(){
+        this.head = null;
+        this.tail = null;
+    }
+    add(val){
+        let node = new Node(val)
+        if(this.head == null){
+            this.head = node;
+        }
+        if(this.tail != null){
+            this.tail.next = node;
+        }
+        this.tail = node;
+    }
+    next() {
+        if(!this.head) return null;
+        return this.head.val;
+    }
+    pop(){
+        let targetNode = this.head;
+        this.head = this.head.next;
+        if(this.tail == targetNode){
+            this.tail = null;
+        }
+        return targetNode.val;
+    }
+}
+function endTurn() {
+    currentBattle.endTurn();
+}
+async function testBattle(battleURL){
+    if(!get("war-tab"))
+        newTab("war",
+`
+|     |
+| War |
+|     |
+`);
+    selectTab("war");
+    get("map-container").classList.add("hidden");
+    get('battle-map-container').classList.remove('hidden');
+    currentBattle = new CombatScene();
+    await currentBattle.loadMapFromFile(battleURL);
+
+    testFox = new CombatCreature("Estelle",null,1,15,2,2,6,1,2,1);
+    testHunter = new CombatCreature("Hunter",null,1,10,1,2,6,1,0,2);
+    testLeader = new CombatCreature("Leader",null,2,20,2,2,8,1,1,2);
+
+    if(mons.length < 1){
+        let est = new Mon();
+        est.element = 'astral';
+        est.level = 2;
+        est.maxhp = 20;
+        est.nickname = "Estelle";
+        est.species = "fox";
+        est.speed = 3;
+        est.tame = 100;
+        mons.push(est);
+    }
+    if(mons.length < 2){
+        let raven = new Mon();
+        raven.level = 2;
+        raven.maxhp = 14;
+        raven.fly = true;
+        raven.element = 'earth';
+        raven.size = 4;
+        raven.species = 'raven'
+        raven.nickname = 'Corvus';
+        raven.speed = 3;
+        raven.tame = 100;
+        mons.push(raven);
+    }
+    if(mons.length < 3) {
+        let wolf = new Mon();
+        wolf.level = 2;
+        wolf.maxhp = 16;
+        wolf.element = 'fire';
+        wolf.size = 8;
+        wolf.species = 'wolf';
+        wolf.nickname = 'Wolfey';
+        wolf.speed = 2;
+        wolf.tame = 100;
+        mons.push(wolf);
+    }
+
+    let allies = [mons[0].getCombatStats(),mons[1].getCombatStats(),mons[2].getCombatStats()];
+    let enemies = [testLeader,testHunter.clone(),testHunter.clone(),testHunter.clone()];
+
+    
+    currentBattle.addAllies(allies);
+    currentBattle.addEnemies(enemies);
+    currentBattle.redraw();
 }

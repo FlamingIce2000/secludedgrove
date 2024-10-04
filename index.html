@@ -115,8 +115,8 @@
         .berry{
             position: absolute;
             color: #A00000;
-            font-size: "24px";
-
+            font-size: 24px;
+            padding: 4px 6px;
         }
         .monsheet{
             position: absolute;
@@ -312,6 +312,15 @@ g            "*rhw,,,#"`        K    ^      "g    , $ @   ] |
 ((o))                                                                         )
  '-'-------------------------------------------------------------------------'
              </pre>
+            </div>
+            <div id="battle-map-container" style="display:flex;flex-direction:column" class="hidden">
+                <p id="battle-notification"></p>
+                <button id="end-turn" style="width:fit-content" onclick="endTurn()">End Turn</button>
+                <div style="display:flex;justify-items: center;flex-direction: row;">
+                    <canvas id="battle-map" style="top:50px"></canvas>
+                    <div id="tooltip" class="tooltip-text" style="width:fit-content;height: fit-content;"></div>
+                    <div id="battle-info" style="margin-left: 10px;width:150px;border: 1px solid #000;padding:8px;background-color: #E0E0E0;visibility: hidden;">Testing putting info here</div>
+                </div>
             </div>
         </div>
     </div>
