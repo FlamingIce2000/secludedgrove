@@ -14,6 +14,7 @@ let progress = 0
 let mons = [];
 let intervals = new Set([]);
 let resourceListeners = new Set([]);
+let victories = new Set([]);
 let exploreCooldown = new Box(0);
 let trapCooldown = new Box(0);
 let alignment = 0;
@@ -129,13 +130,13 @@ function addBerry(){
 
 }
 function saveGame() {
-    localStorage.setItem('fruit', fruit);
+    localStorage.setItem('resources', resources);
     localStorage.setItem('progress',progress);
     localStorage.setItem('mons',mons);
     localStorage.setItem('grove text',get("grove-text").innerText);
 }
 function loadGame() {
-    fruit = localStorage.getItem('fruit');
+    resources = localStorage.getItem('resources');
     progress = localStorage.getItem('progress');
     mons = localStorage.getItem('mons');
     let groveText = localStorage.getItem('grove text');
@@ -424,7 +425,10 @@ function explore(){
     resources['fruit'] -= EXPLORE_COST;
     get("explore-image").hidden = true;
     updateResourceDisplay();
-    if(numExplores < 10) {
+    if(numExplores == 4){
+        eventForeshadow();
+    }
+    else if(numExplores < 10) {
         switch(Math.floor(Math.random()*18)){
             case 0:
             case 1:
@@ -603,6 +607,23 @@ function explore(){
     numExplores++;
 
 }
+function eventForeshadow() {
+    let exploreText = get("explore-text");
+    exploreText.innerText = convertString("A single flower lies in the clearing before you. It glows with a magical light.");
+    let exploreButton = get("explore-button");
+    if(!exploreButton.classList.contains('hidden')){
+        exploreButton.classList.add('hidden');
+    }
+    let button = newChild(get("explore-screen"),"button","choice1","Pick it");
+    setOnClick(button,() => {
+        button.remove();
+        exploreText.innerText = convertString("As you pick the flower, a vision opens in your mind. You sense great danger looming. An enemy threat, a great Desolation. You must prepare. You see that the power to heal the world lies deep within the forest. You must find it. Soon. The vision fades.");
+        resources['mystic herbs']++;
+        updateResourceDisplay();
+        setTimeout(resetExplore,20000);
+    });
+    
+}
 function event1(){ //tame squirrel
     let exploreText = get("explore-text");
     creatureType = (Math.random() < 0.5)?"squirrel":"chipmunk";
@@ -662,7 +683,7 @@ function event2(){ //tame wolf
 }
 function event3(){ //wood
     let exploreText = get("explore-text");
-    exploreButton = get("explore-button");
+    let exploreButton = get("explore-button");
     if(!exploreButton.classList.contains('hidden')){
         exploreButton.classList.add('hidden');
     }
@@ -677,8 +698,8 @@ function event4(){ //blackberries
     if(!exploreButton.classList.contains('hidden')){
         exploreButton.classList.add('hidden');
     }
-    exploreText.innerText = convertString(`A grove of blackberry bushes filled with ripe berries greets you. You gather what you can carry. Back at camp ${mons[0].nickname} puts on puppy dog eyes to beg for one.`);
-    resources['fruit'] += Math.floor(Math.random()*15)+15;
+    exploreText.innerText = convertString(`A grove of blackberry bushes filled with ripe berries greets you. You gather what you can carry. Back at camp ${mons[0].nickname} puts on puppy dog eyes to beg for one. ${((alignment > 0)?"You grin and give them a few":"You ignore their request.")}`);
+    resources['fruit'] += Math.floor(Math.random()*15)+15+((alignment > 0)?0:1);
     updateResourceDisplay();
     setTimeout(resetExplore,15000);
 }
@@ -1420,7 +1441,7 @@ function eventContact() {
         if(!exploreButton.classList.contains('hidden')){
             exploreButton.classList.add('hidden');
         }
-    exploreText.innerText = convertString("As you enjoy a walk in the woods you hear an unnatural sounds. Talking. Humans, they\'re here. You see them up ahead investigating some ancient ruins. They are searching for the crystal, they must be. You hurry back to the grove. The grove is not safe anymore. It is time for war.");
+    exploreText.innerText = convertString("As you enjoy a walk in the woods you hear an unnatural sound. Talking. Humans, they\'re here. You see them up ahead investigating some ancient ruins. They are searching for the crystal, they must be. You hurry back to the grove. The grove is not safe anymore. It is time for war.");
     warButton = newChild(get('explore-screen'),"button",null,"To War!");
     setOnClick(warButton,() => {
         warButton.remove();
@@ -1612,7 +1633,7 @@ function updateTraps(){
 function checkTraps(){
     let rnd = Math.floor(Math.random()*20);
     if(rnd > 4) {
-        resources['meat'] += Math.floor(Math.random()*(2+resources['traps']))+3;
+        resources['meat'] += Math.floor(Math.random()*(2+resources['traps']))+8;
         get('trap-text').innerText = "You kill and harvest the animal" + ((resources['traps'] > 1)?"s":"") + " in your trap" + ((resources['traps'] > 1)?"s":"");
         alignment -= 1;
     } else {
@@ -2511,6 +2532,11 @@ class CombatScene {
         this.enemyTiles = new Set();
         
         this.targetEnemies = null;
+
+        this.allies = new Set();
+        this.enemies = new Set();
+        this.battleid = 0;
+        this.battleover = 0; //0 is battle is ongoing, 1 means victory, 2 means loss
     }
     initEmptyMap(width,height) {
         this.map = Array.from({ length: height }, () =>
@@ -2566,6 +2592,7 @@ class CombatScene {
                 break;
             }
             this.addCreature(tile.x,tile.y,allyList[i]);
+            this.allies.add(allyList[i]);
             i++;
         }
     }
@@ -2576,6 +2603,7 @@ class CombatScene {
                 break;
             }
             this.addCreature(tile.x,tile.y,enemyList[i]);
+            this.enemies.add(enemyList[i]);
             i++;
         }
     }
@@ -2639,6 +2667,8 @@ class CombatScene {
                 ctx.fillRect(j * TILE_SIZE, i * TILE_SIZE, TILE_SIZE, TILE_SIZE);
 
                 ctx.fillStyle = "#101010";
+                if(tile.creature &&tile.creature.team == 1) ctx.fillStyle = "#109010";
+                if(tile.creature &&tile.creature.team != 1) ctx.fillStyle = "#901010";
                 if(tile.creature && tile.creature.exhausted) ctx.fillStyle = "#B0B0B0";
                 ctx.font = "20px monospace";
                 ctx.textAlign = "center";
@@ -2819,6 +2849,7 @@ ${(creature.fly)?"Flying ":""}${(creature.swim)?"Swimming ":""}${(creature.burro
                 creature.exhausted = true;
             }
         }
+        this.targetEnemies = null;
         for(let enemy of this.creatures){
             if(enemy.team == 1) continue;
             enemy.simpleAIMove(this);
@@ -2848,8 +2879,21 @@ ${(creature.fly)?"Flying ":""}${(creature.swim)?"Swimming ":""}${(creature.burro
                 notification.innerText += ` ${defCreature.name} retreats to the grove!`;
                 defCreature.card.tame -= Math.floor(Math.random()*20)+10;
                 updateMonCard("tame");
+                this.allies.delete(defCreature);
+                if (this.allies.size < 1){
+                    notification.innerText += `\nAll the animals have retreated! You flee from battle.`;
+                    this.battleover = 2;
+                    get('end-turn').innerText = "End Battle";
+                }
             } else {
+                this.enemies.delete(defCreature);
                 notification.innerText += ` ${defCreature.name} is killed!`;
+                if(this.enemies.size < 1){
+                    notification.innerText += `\nYour enemies are no more! You are victorious.`;
+                    victories.add(this.battleid);
+                    this.battleover = 1;
+                    get('end-turn').innerText = "End Battle";
+                }
             }
             this.removeCreature(defCreature.location.x,defCreature.location.y);
             if(agrCreature.team == 1){
@@ -2860,6 +2904,12 @@ ${(creature.fly)?"Flying ":""}${(creature.swim)?"Swimming ":""}${(creature.burro
                 notification.innerText += ` ${agrCreature.name} gains ${Math.max(0,expGain)} exp!`;
             }
         }
+    }
+    endBattle() {
+        get("battle-map-container").classList.add("hidden");
+        currentBattle = null;
+        get("battle-notification").innerText = "";
+        get("map-container").classList.remove("hidden");
     }
 }
 class Node {
@@ -2897,7 +2947,12 @@ class Queue {
     }
 }
 function endTurn() {
-    currentBattle.endTurn();
+    if(currentBattle.battleover == 0){
+        currentBattle.endTurn();
+    } else {
+        get('end-turn').innerText = "End Turn"
+        currentBattle.endBattle();
+    }
 }
 async function testBattle(battleURL){
     if(!get("war-tab"))
@@ -2961,4 +3016,90 @@ async function testBattle(battleURL){
     currentBattle.addAllies(allies);
     currentBattle.addEnemies(enemies);
     currentBattle.redraw();
+}
+async function initBattle(levelNum){
+    get("map-container").classList.add("hidden");
+    let maxAllies = 1;
+    let levelName = "testMap.txt"
+    switch(levelNum){
+        case 1:
+            maxAllies = 3;
+            levelName = "battle1.txt"
+            break;
+    }
+    get("ally-select-text").innerText = "Select up to " + maxAllies;
+    let allySelect = get("ally-select")
+    allySelect.classList.remove("hidden");
+
+    function updateList() {
+        const selectedCount = document.querySelectorAll('input[type="checkbox"]:checked').length;
+            let checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.disabled = selectedCount >= maxAllies && !checkbox.checked;
+            });
+            let submitButton = get('start-battle');
+            submitButton.disabled = (selectedCount === 0);
+    }
+
+    for(let index in mons){
+        let monLabel = newChild(allySelect,"label",null,mons[index].nickname,"item");
+        let checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.class = "input-checkbox";
+        checkbox.value = index;
+        monLabel.appendChild(checkbox);
+        let listener = checkbox.addEventListener("change",updateList);
+    }
+    let beginButton = newChild(allySelect,"button","start-battle","Begin");
+    beginButton.disabled = true;
+    setOnClick(beginButton,async () => {
+        let allies = [];
+        document.querySelectorAll('input[type="checkbox"]:checked').forEach(element => {
+            allies.push(mons[element.value]);
+        });
+        allySelect.classList.add("hidden");
+        document.querySelectorAll('input[type="checkbox"]').forEach(ele => {
+            ele.removeEventListener('change',updateList);
+            ele.parentNode.remove();
+            ele.remove();
+        });
+        get("start-battle").remove();
+        currentBattle = new CombatScene();
+        await currentBattle.loadMapFromFile(levelName);
+        get("battle-map-container").classList.remove("hidden");
+        
+        let enemies = getBattleEnemies(levelNum);
+        currentBattle.battleid = levelNum;
+
+        currentBattle.addAllies(allies);
+        currentBattle.addEnemies(enemies);
+        currentBattle.redraw();
+    });
+}
+
+function backToMap(){
+    document.querySelectorAll('.item-checkbox').forEach(ele => {
+        ele.removeEventListener('change',updateList);
+        ele.parentNode.remove();
+        ele.remove();
+    });
+    get("start-battle").remove();
+    get("ally-select").classList.add("hidden");
+    get("map-container").classList.remove("hidden");
+}
+
+function getBattleEnemies(levelNum){
+    let enemies = [];
+    switch(levelNum){
+        case 1:
+            weakHunter = new CombatCreature("Hunter",null,0,8,0,2,4,1,0,2);
+            enemies.push(weakHunter.clone());
+            enemies.push(weakHunter.clone());
+            enemies.push(weakHunter.clone());
+            enemies.push(weakHunter.clone());
+            enemies.push(weakHunter.clone());
+            break;
+    }
+
+    return enemies;
 }

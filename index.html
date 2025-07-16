@@ -112,6 +112,11 @@
             user-select: none;
         }
 
+        .item {
+            display: block;
+            margin: 5px;
+        }
+
         .berry{
             position: absolute;
             color: #A00000;
@@ -312,7 +317,9 @@ g            "*rhw,,,#"`        K    ^      "g    , $ @   ] |
 ((o))                                                                         )
  '-'-------------------------------------------------------------------------'
              </pre>
+            <div id="level-1" style="display:flex;height:20px;width:20px;position:absolute;left:200px;top:200px" class="clickable" onclick="initBattle(1)">1</div>
             </div>
+            <div id="ally-select" class="hidden"><button onclick="backToMap()">Back</button><div id="ally-select-text">Select up to</div></div>
             <div id="battle-map-container" style="display:flex;flex-direction:column" class="hidden">
                 <p id="battle-notification"></p>
                 <button id="end-turn" style="width:fit-content" onclick="endTurn()">End Turn</button>
