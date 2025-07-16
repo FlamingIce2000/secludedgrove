@@ -1211,7 +1211,7 @@ function event21(){ //tame bear cub
         "As you journey through the forest, you find a bear cub next to its mother. The mother bear is trapped under a large boulder. The cub frantically tries to help its mother move, but to no avail.",
         "Free the mother",["wood"],[5],
         () => {
-            exploreText.innerText = convertString("You put together a makeshift wooden level and use it to lift the boulder slightly. Soon the bear is free. The bear glares at you warily and stands between you and its cub. Carefully, it guides its cub away from you and into the forest.");
+            exploreText.innerText = convertString("You put together a makeshift wooden lever and use it to lift the boulder slightly. Soon the bear is free. The bear glares at you warily and stands between you and its cub. Carefully, it guides its cub away from you and into the forest.");
             alignment += 5;
             setTimeout(resetExplore,20000);
         },
@@ -3058,7 +3058,7 @@ async function initBattle(levelNum){
     setOnClick(beginButton,async () => {
         let allies = [];
         document.querySelectorAll('input[type="checkbox"]:checked').forEach(element => {
-            allies.push(mons[element.value]);
+            allies.push(mons[element.value].getCombatStats());
         });
         allySelect.classList.add("hidden");
         document.querySelectorAll('input[type="checkbox"]').forEach(ele => {
