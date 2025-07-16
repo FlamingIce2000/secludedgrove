@@ -104,6 +104,9 @@ class coord {
         this.x = x;
         this.y = y;
     }
+    clone(){
+        return new coord(this.x,this.y);
+    }
 }
 function C(x,y){
     return new coord(x,y);
@@ -116,7 +119,7 @@ const berryLocations = [C(100,115),C(115,113),C(127,115),C(89,112),C(75,114),C(6
     
 ];
 function addBerry(){
-    let thisCoord = berryLocations[Math.floor(Math.random() * berryLocations.length)];
+    let thisCoord = berryLocations[Math.floor(Math.random() * berryLocations.length)].clone();
     thisCoord.x -= Math.random()*2+4.5;
     thisCoord.y -= Math.random()*2+4.5;
     let berryDiv = newChild(get('bush-wrapper'),"div",null,"⚫︎","clickable berry");
